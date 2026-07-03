@@ -212,7 +212,14 @@
     display:flex; align-items:center; justify-content:center; gap:6px;
   }
   .photo-preview{margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;}
-  .photo-preview img{width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line);}
+  .photo-thumb{position:relative; width:56px; height:56px;}
+  .photo-thumb img{width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line); display:block;}
+  .photo-del{
+    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    background:var(--danger); color:#fff; border:2px solid #fff; font-size:11px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; padding:0; line-height:1;
+  }
+  body.dark-mode .photo-del{border-color:#141c2e;}
 
   .card-actions{display:flex; justify-content:flex-end; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
   .card-actions button{background:none; border:none; color:var(--ink-soft); font-size:12px; font-weight:700; display:flex; align-items:center; gap:4px;}
@@ -811,7 +818,7 @@
   </div>
 </div>
 
-<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="cameraInput" accept="image/*" multiple style="display:none">
 <div class="toast" id="toast"></div>
 
 <!-- 自訂確認彈窗（取代瀏覽器原生 confirm/alert，避免部分環境阻擋跳出視窗） -->
@@ -1091,7 +1098,7 @@
         </div>
         <div class="curr-warning" id="currWarning_${site.id}"></div>
 
-        <button class="photo-btn" data-photo="${site.id}">📷 拍攝照片</button>
+        <button class="photo-btn" data-photo="${site.id}">📷 拍照 / 從相簿選擇</button>
         <div class="photo-preview" id="photoPreview_${site.id}"></div>
 
         <div class="card-actions">
@@ -1103,10 +1110,11 @@
 
       if(r.photos && r.photos.length){
         const pv = card.querySelector(`#photoPreview_${site.id}`);
-        r.photos.forEach(src=>{
-          const img = document.createElement("img");
-          img.src = src;
-          pv.appendChild(img);
+        r.photos.forEach((src, idx)=>{
+          const wrap = document.createElement("div");
+          wrap.className = "photo-thumb";
+          wrap.innerHTML = `<img src="${src}"><button type="button" class="photo-del" data-photo-del="${site.id}" data-photo-idx="${idx}" aria-label="刪除照片">✕</button>`;
+          pv.appendChild(wrap);
         });
       }
     });
@@ -1147,8 +1155,23 @@
         document.getElementById("cameraInput").click();
       });
     });
+    list.querySelectorAll("[data-photo-del]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        deletePhoto(btn.dataset.photoDel, parseInt(btn.dataset.photoIdx));
+      });
+    });
 
     updateSummary(readings);
+  }
+
+  function deletePhoto(siteId, idx){
+    const readings = loadReadings(currentMonthKey);
+    const r = readings[siteId];
+    if(!r || !r.photos || !r.photos[idx]) return;
+    r.photos.splice(idx, 1);
+    saveReadings(currentMonthKey, readings);
+    render();
+    showToast("照片已刪除");
   }
 
   function updateUsageDisplay(siteId, r){
@@ -2194,21 +2217,27 @@
     showToast("已儲存本期抄錶資料");
   });
 
-  // ---- Photo capture ----
-  document.getElementById("cameraInput").addEventListener("change", e=>{
-    const file = e.target.files[0];
-    if(!file || !currentPhotoTargetId) return;
-    const reader = new FileReader();
-    reader.onload = ev=>{
-      const readings = loadReadings(currentMonthKey);
-      if(!readings[currentPhotoTargetId]) readings[currentPhotoTargetId] = {curr:"", photos:[]};
-      if(!readings[currentPhotoTargetId].photos) readings[currentPhotoTargetId].photos = [];
-      readings[currentPhotoTargetId].photos.push(ev.target.result);
-      saveReadings(currentMonthKey, readings);
-      render();
-      showToast("照片已附加");
-    };
-    reader.readAsDataURL(file);
+  // ---- Photo capture / 從相簿選擇（支援一次選多張）----
+  function readFileAsDataURL(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ev=>resolve(ev.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  document.getElementById("cameraInput").addEventListener("change", async e=>{
+    const files = [...e.target.files];
+    const targetId = currentPhotoTargetId;
+    if(!files.length || !targetId) return;
+    const dataUrls = await Promise.all(files.map(readFileAsDataURL));
+    const readings = loadReadings(currentMonthKey);
+    if(!readings[targetId]) readings[targetId] = {curr:"", photos:[]};
+    if(!readings[targetId].photos) readings[targetId].photos = [];
+    readings[targetId].photos.push(...dataUrls);
+    saveReadings(currentMonthKey, readings);
+    render();
+    showToast(dataUrls.length > 1 ? `已附加 ${dataUrls.length} 張照片` : "照片已附加");
     e.target.value = "";
   });
 

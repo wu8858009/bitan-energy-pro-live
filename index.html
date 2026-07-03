@@ -640,7 +640,7 @@
       </div>
     </div>
     <div class="form-group">
-      <label>上期讀數</label>
+      <label id="f_prevLabel">上期讀數</label>
       <input type="number" id="f_prev" placeholder="0" inputmode="decimal">
     </div>
     <div class="sheet-actions">
@@ -1445,12 +1445,23 @@
     setTypeChoice(site.type);
     overlay.classList.add("open");
   }
+  // 上期讀數是否必填：電錶／瓦斯錶必填，水錶選填（留空預設為 0）
+  function isPrevReadingRequired(){
+    return chosenType === "elec" || chosenType === "gas";
+  }
+  function updatePrevFieldHint(){
+    const label = document.getElementById("f_prevLabel");
+    const required = isPrevReadingRequired();
+    label.textContent = required ? "上期讀數（必填）" : "上期讀數（水錶選填，留空預設為 0）";
+    if(!required) clearFieldError(document.getElementById("f_prev"));
+  }
   function setTypeChoice(type){
     chosenType = type;
     document.querySelectorAll(".type-choice button").forEach(b=>{
       b.classList.remove("sel-water","sel-elec","sel-gas");
       if(b.dataset.type===type) b.classList.add("sel-"+type);
     });
+    updatePrevFieldHint();
   }
   document.querySelectorAll(".type-choice button").forEach(b=>{
     b.addEventListener("click", ()=>setTypeChoice(b.dataset.type));
@@ -1458,13 +1469,12 @@
   document.getElementById("cancelBtn").addEventListener("click", ()=>overlay.classList.remove("open"));
   overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.classList.remove("open"); });
 
-  // 新增/編輯站點：所有欄位都必填，才能按「儲存」或按鍵盤 Enter 確認
+  // 新增/編輯站點：群組、站點名稱、位置、錶號都必填；上期讀數依錶類別決定（見 isPrevReadingRequired）
   const REQUIRED_FORM_FIELDS = [
     {id:"f_group", label:"群組 / 客戶名稱"},
     {id:"f_site", label:"站點名稱"},
     {id:"f_location", label:"位置"},
-    {id:"f_meterno", label:"錶號"},
-    {id:"f_prev", label:"上期讀數"}
+    {id:"f_meterno", label:"錶號"}
   ];
 
   function clearFieldError(inp){ inp.classList.remove("field-error"); }
@@ -1477,6 +1487,13 @@
       inp.classList.toggle("field-error", isEmpty);
       if(isEmpty && !firstInvalid) firstInvalid = {inp, label:f.label};
     });
+
+    const prevInp = document.getElementById("f_prev");
+    const prevStr = prevInp.value.trim();
+    const prevMissing = isPrevReadingRequired() && prevStr === "";
+    prevInp.classList.toggle("field-error", prevMissing);
+    if(prevMissing && !firstInvalid) firstInvalid = {inp:prevInp, label:"上期讀數"};
+
     if(firstInvalid){
       firstInvalid.inp.focus();
       showToast(`請輸入「${firstInvalid.label}」`);
@@ -1487,8 +1504,7 @@
     const site = document.getElementById("f_site").value.trim();
     const location = document.getElementById("f_location").value.trim();
     const meterNo = document.getElementById("f_meterno").value.trim();
-    const prevInp = document.getElementById("f_prev");
-    const prev = parseFloat(prevInp.value);
+    const prev = prevStr === "" ? 0 : parseFloat(prevStr);
     if(isNaN(prev)){
       prevInp.classList.add("field-error");
       prevInp.focus();
@@ -1511,7 +1527,7 @@
 
   document.getElementById("confirmBtn").addEventListener("click", trySaveSiteForm);
 
-  REQUIRED_FORM_FIELDS.forEach(f=>{
+  REQUIRED_FORM_FIELDS.concat([{id:"f_prev"}]).forEach(f=>{
     const inp = document.getElementById(f.id);
     inp.addEventListener("input", ()=>clearFieldError(inp));
     inp.addEventListener("keydown", e=>{

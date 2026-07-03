@@ -4,7 +4,7 @@
 #   2. 把下面 REPO_URL 換成你自己的 repository 網址
 #   3. 在這個資料夾下執行： bash push-to-github.sh
 
-REPO_URL="https://github.com/你的帳號/你的repo名稱.git"
+REPO_URL="https://github.com/wu8858009/bitan-energy-pro.git"
 
 set -e
 git init

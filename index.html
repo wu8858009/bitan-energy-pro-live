@@ -255,9 +255,13 @@
   .type-choice button, .rtype-choice button{
     flex:1; border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:12px; font-weight:800; font-size:14px; color:var(--ink-soft);
   }
-  .type-choice button.sel-water, .rtype-choice button.sel-water{border-color:var(--blue-tag); background:#eaf2ff; color:var(--blue-tag);}
-  .type-choice button.sel-elec, .rtype-choice button.sel-elec{border-color:var(--elec); background:#fff8e5; color:#a97400;}
-  .type-choice button.sel-gas, .rtype-choice button.sel-gas{border-color:var(--gas); background:#fff1ec; color:var(--gas);}
+  .type-choice button.sel-water, .rtype-choice button.sel-water{border-color:var(--blue-tag); background:#eaf2ff; color:var(--blue-tag); box-shadow:0 0 0 2px rgba(47,123,246,.25);}
+  .type-choice button.sel-elec, .rtype-choice button.sel-elec{border-color:var(--elec); background:#fff8e5; color:#a97400; box-shadow:0 0 0 2px rgba(245,180,0,.25);}
+  .type-choice button.sel-gas, .rtype-choice button.sel-gas{border-color:var(--gas); background:#fff1ec; color:var(--gas); box-shadow:0 0 0 2px rgba(255,106,61,.25);}
+  .tc-check{display:inline-block; opacity:0; font-weight:900; transform:scale(0.6); transition:opacity .15s, transform .15s;}
+  .type-choice button.sel-water .tc-check,
+  .type-choice button.sel-elec .tc-check,
+  .type-choice button.sel-gas .tc-check{opacity:1; transform:scale(1);}
   .sheet-actions{display:flex; gap:10px; margin-top:6px;}
   .sheet-actions button{flex:1; border:none; border-radius:12px; padding:14px; font-weight:800; font-size:15px;}
   .btn-cancel{background:#eef0f4; color:#5c6478;}
@@ -630,9 +634,9 @@
     <div class="form-group">
       <label>類型</label>
       <div class="type-choice">
-        <button type="button" data-type="water">💧 水</button>
-        <button type="button" data-type="elec">⚡ 電</button>
-        <button type="button" data-type="gas">🔥 瓦斯</button>
+        <button type="button" data-type="water">💧 水 <span class="tc-check">✓</span></button>
+        <button type="button" data-type="elec">⚡ 電 <span class="tc-check">✓</span></button>
+        <button type="button" data-type="gas">🔥 瓦斯 <span class="tc-check">✓</span></button>
       </div>
     </div>
     <div class="form-group">

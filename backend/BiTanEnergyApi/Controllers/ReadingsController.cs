@@ -10,7 +10,7 @@ namespace BiTanEnergyApi.Controllers;
 
 [ApiController]
 [Route("api")]
-[Authorize]
+// [Authorize] — 暫時移除登入驗證，需要恢復時把這行取消註解
 public class ReadingsController : ControllerBase
 {
     private readonly AppDbContext _db;

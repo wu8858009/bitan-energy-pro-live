@@ -888,8 +888,14 @@
         body: JSON.stringify({username, password})
       });
       if(!res.ok){
-        const j = await res.json().catch(()=>({}));
-        errEl.textContent = j.message || "帳號或密碼錯誤";
+        if(res.status === 401){
+          errEl.textContent = "帳號或密碼錯誤";
+        }else{
+          const j = await res.json().catch(()=>null);
+          errEl.textContent = (j && j.message)
+            ? j.message
+            : `找不到後端服務（HTTP ${res.status}），請確認這個網址有正確部署 API，而不是純靜態展示頁`;
+        }
         return;
       }
       currentUser = await res.json();
@@ -2216,6 +2222,12 @@
       showToast(e.message || "載入資料失敗，請重新整理頁面");
     }
   }
+  // 登入驗證暫時停用：略過 checkAuth() 直接開機，需要恢復時把下面這段換回註解掉的版本
+  (async ()=>{
+    hideLoginGate();
+    await bootApp();
+  })();
+  /*
   (async ()=>{
     const authed = await checkAuth().catch(()=>false);
     if(authed){
@@ -2225,6 +2237,7 @@
       showLoginGate("");
     }
   })();
+  */
 })();
 </script>
 </body>

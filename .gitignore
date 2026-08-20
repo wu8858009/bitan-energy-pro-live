@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# .NET backend
+backend/**/bin/
+backend/**/obj/
+backend/**/App_Data/
+backend/**/appsettings.Production.json
+backend/**/appsettings.*.local.json
+
+# 打包發布輸出
+publish/

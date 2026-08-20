@@ -1,0 +1,6 @@
+@BiTanEnergyApi_HostAddress = http://localhost:5278
+
+GET {{BiTanEnergyApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

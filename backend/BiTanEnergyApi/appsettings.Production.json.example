@@ -1,0 +1,15 @@
+{
+  "ConnectionStrings": {
+    "Default": "Server=YOUR_SQLSERVER2014_HOST;Database=BiTanEnergy;User Id=biTanEnergyApp;Password=YOUR_STRONG_PASSWORD;TrustServerCertificate=True"
+  },
+  "Database": {
+    "AutoMigrate": false
+  },
+  "Uploads": {
+    "RootPath": "D:\\BiTanEnergy\\uploads"
+  },
+  "Admin": {
+    "InitialUsername": "admin",
+    "InitialPassword": "SET_A_STRONG_PASSWORD_THEN_DELETE_THIS_LINE"
+  }
+}

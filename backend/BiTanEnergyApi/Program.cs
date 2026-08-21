@@ -52,6 +52,14 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Dev convenience only: serve the static frontend from the repo root so it's
+    // same-origin with /api when testing locally via `dotnet run` (in production,
+    // IIS serves the frontend separately — see DEPLOY-IIS.md).
+    var repoRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", ".."));
+    var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(repoRoot);
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
 }
 
 // HTTPS termination is handled by IIS in front of this app; see DEPLOY-IIS.md.

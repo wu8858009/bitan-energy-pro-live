@@ -36,6 +36,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 
+// Dev convenience only: lets index.html opened directly via file:// (Origin: null)
+// reach the local dotnet run backend; production (IIS, same-origin) never uses this.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevFileOrigin", policy =>
+        policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials());
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -50,6 +58,7 @@ using (var scope = app.Services.CreateScope())
 
 if (app.Environment.IsDevelopment())
 {
+    app.UseCors("DevFileOrigin");
     app.UseSwagger();
     app.UseSwaggerUI();
 

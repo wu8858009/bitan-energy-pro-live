@@ -816,7 +816,9 @@
 <script>
 (function(){
   "use strict";
-  const API_BASE = "/api";
+  // 直接用 file:// 開這個檔案（例如雙擊 index.html）時沒有同源後端可用，
+  // 改連本機 dotnet run 開的測試後端；正式部署（http/https 同源）維持相對路徑。
+  const API_BASE = (location.protocol === "file:") ? "http://localhost:5278/api" : "/api";
   const TYPE_META = {
     water:{label:"水", icon:"💧", cls:"type-water", unit:"度"},
     elec:{label:"電", icon:"⚡", cls:"type-elec", unit:"度"},

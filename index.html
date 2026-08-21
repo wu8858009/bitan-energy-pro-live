@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="3.4">
+<meta name="app-build" content="3.5">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -554,7 +554,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v3.4</span>
+    <span class="pro-badge">PRO v3.5</span>
   </div>
 
   <div class="control-panel">
@@ -748,7 +748,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v3.4 ・ 資料儲存於本機瀏覽器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v3.5 ・ 資料儲存於本機瀏覽器</div>
   </div>
 </div>
 
@@ -1394,6 +1394,10 @@
   }
   document.querySelectorAll(".type-choice button").forEach(b=>{
     b.addEventListener("click", ()=>setTypeChoice(b.dataset.type));
+  });
+  document.getElementById("f_meterno").addEventListener("input", e=>{
+    const filtered = e.target.value.replace(/[^A-Za-z0-9]/g, "");
+    if(filtered !== e.target.value) e.target.value = filtered;
   });
   document.getElementById("cancelBtn").addEventListener("click", ()=>overlay.classList.remove("open"));
   overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.classList.remove("open"); });

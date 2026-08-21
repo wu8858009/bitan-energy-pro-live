@@ -6,7 +6,25 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
+<meta name="app-build" content="3.3">
 <link rel="manifest" href="manifest.json">
+<script>
+(function(){
+  try{
+    if(sessionStorage.getItem("bitan_update_checked_v1")) return;
+    sessionStorage.setItem("bitan_update_checked_v1", "1");
+    var currentBuild = document.querySelector('meta[name="app-build"]').content;
+    fetch(location.pathname, {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(html){
+      var m = html.match(/<meta name="app-build" content="([^"]+)">/);
+      if(m && m[1] !== currentBuild){
+        var url = new URL(location.href);
+        url.searchParams.set("_v", m[1]);
+        location.replace(url.toString());
+      }
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
@@ -530,7 +548,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v3.2</span>
+    <span class="pro-badge">PRO v3.3</span>
   </div>
 
   <div class="control-panel">
@@ -724,7 +742,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v3.2 ・ 資料儲存於本機瀏覽器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v3.3 ・ 資料儲存於本機瀏覽器</div>
   </div>
 </div>
 

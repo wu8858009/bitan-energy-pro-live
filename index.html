@@ -526,27 +526,6 @@
 </head>
 <body>
 
-<div class="overlay open" id="loginOverlay" style="z-index:200;">
-  <div class="sheet" style="max-width:360px;">
-    <h2>碧潭能源管理系統 － 登入</h2>
-    <div class="form-group">
-      <label>管理員帳號</label>
-      <input type="text" id="loginUsername" autocomplete="username" placeholder="admin">
-    </div>
-    <div class="form-group">
-      <label>密碼</label>
-      <div style="position:relative;">
-        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="請輸入密碼" style="width:100%; padding-right:44px; box-sizing:border-box;">
-        <button type="button" id="loginPwdToggle" aria-label="顯示密碼" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); border:none; background:none; font-size:18px; line-height:1; cursor:pointer; padding:6px; opacity:.6;">👁️</button>
-      </div>
-    </div>
-    <div id="loginError" style="color:#e0483e; font-size:13px; min-height:18px; margin-top:-6px; margin-bottom:8px;"></div>
-    <div class="sheet-actions">
-      <button class="btn-confirm" id="loginBtn" style="width:100%;">登入</button>
-    </div>
-  </div>
-</div>
-
 <div class="topbar">
  <div class="topbar-inner">
   <div class="title-row">
@@ -742,19 +721,10 @@
       </button>
     </div>
 
-    <div class="menu-section">
-      <div class="menu-section-title">帳號</div>
-      <button type="button" class="menu-item danger" id="mLogout">
-        <span class="mi-ic">🚪</span>
-        <span class="mi-label">登出<span class="mi-sub" id="loggedInAsLabel"></span></span>
-        <span class="mi-chev">›</span>
-      </button>
-    </div>
-
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v3.2 ・ 資料儲存於伺服器（IIS + MSSQL）</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v3.2 ・ 資料儲存於本機瀏覽器</div>
   </div>
 </div>
 
@@ -816,9 +786,6 @@
 <script>
 (function(){
   "use strict";
-  // 直接用 file:// 開這個檔案（例如雙擊 index.html）時沒有同源後端可用，
-  // 改連本機 dotnet run 開的測試後端；正式部署（http/https 同源）維持相對路徑。
-  const API_BASE = (location.protocol === "file:") ? "http://localhost:5278/api" : "/api";
   const TYPE_META = {
     water:{label:"水", icon:"💧", cls:"type-water", unit:"度"},
     elec:{label:"電", icon:"⚡", cls:"type-elec", unit:"度"},
@@ -832,104 +799,90 @@
   let currentMonthKey = null;
   let currentPhotoTargetId = null;
 
-  // ---- 後端 API 存取 ----
-  async function apiFetch(path, options){
-    options = options || {};
-    options.credentials = "include";
-    options.headers = Object.assign({}, options.headers);
-    if(options.body && !(options.body instanceof FormData)){
-      options.headers["Content-Type"] = "application/json";
-    }
-    const res = await fetch(API_BASE + path, options);
-    if(res.status === 401){
-      showLoginGate("登入逾時，請重新登入");
-      throw new Error("unauthorized");
-    }
-    return res;
+  // ---- 本機資料儲存（單機版：不連後端，站點/讀數存 localStorage，照片存 IndexedDB） ----
+  const LS_SITES = "bitan_sites_v1";
+  const LS_READINGS = "bitan_readings_v1";
+
+  function persistSites(){
+    localStorage.setItem(LS_SITES, JSON.stringify(sites));
   }
-  async function apiJson(method, path, body){
-    const res = await apiFetch(path, {method, body: body!==undefined ? JSON.stringify(body) : undefined});
-    if(!res.ok){
-      let msg = "操作失敗";
-      try{ const j = await res.json(); msg = j.message || msg; }catch(e){}
-      throw new Error(msg);
+  function persistReadings(){
+    // 只存 curr 與照片 id 參照，不存照片本身（照片存在 IndexedDB）
+    const slim = {};
+    for(const monthKey in readingsCache){
+      slim[monthKey] = {};
+      for(const siteId in readingsCache[monthKey]){
+        const r = readingsCache[monthKey][siteId];
+        slim[monthKey][siteId] = {curr: r.curr, photos: (r.photos||[]).map(p=>({id:p.id}))};
+      }
     }
-    if(res.status === 204) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
+    localStorage.setItem(LS_READINGS, JSON.stringify(slim));
   }
 
-  // ---- 登入驗證 ----
-  let currentUser = null;
-  function showLoginGate(errorMsg){
-    currentUser = null;
-    document.getElementById("loginError").textContent = errorMsg || "";
-    document.getElementById("loginOverlay").classList.add("open");
+  // ---- 照片儲存（IndexedDB，原生 API）----
+  let photoDbPromise = null;
+  function openPhotoDb(){
+    if(photoDbPromise) return photoDbPromise;
+    photoDbPromise = new Promise((resolve, reject)=>{
+      const req = indexedDB.open("bitan-photos", 1);
+      req.onupgradeneeded = ()=>{ req.result.createObjectStore("photos", {keyPath:"id"}); };
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>reject(req.error);
+    });
+    return photoDbPromise;
   }
-  function hideLoginGate(){
-    document.getElementById("loginOverlay").classList.remove("open");
+  async function savePhotoBlob(id, blob, contentType){
+    const db = await openPhotoDb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction("photos", "readwrite");
+      tx.objectStore("photos").put({id, blob, contentType});
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
   }
-  async function checkAuth(){
-    const res = await fetch(API_BASE + "/auth/me", {credentials:"include"});
-    if(!res.ok) return false;
-    currentUser = await res.json();
-    return true;
+  async function getPhotoBlob(id){
+    const db = await openPhotoDb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction("photos", "readonly");
+      const req = tx.objectStore("photos").get(id);
+      req.onsuccess = ()=>resolve(req.result || null);
+      req.onerror = ()=>reject(req.error);
+    });
   }
-  async function doLogin(){
-    const username = document.getElementById("loginUsername").value.trim();
-    const password = document.getElementById("loginPassword").value;
-    const errEl = document.getElementById("loginError");
-    if(!username || !password){ errEl.textContent = "請輸入帳號與密碼"; return; }
-    const btn = document.getElementById("loginBtn");
-    btn.disabled = true;
-    try{
-      const res = await fetch(API_BASE + "/auth/login", {
-        method: "POST",
-        credentials: "include",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username, password})
-      });
-      if(!res.ok){
-        if(res.status === 401){
-          errEl.textContent = "帳號或密碼錯誤";
-        }else{
-          const j = await res.json().catch(()=>null);
-          errEl.textContent = (j && j.message)
-            ? j.message
-            : `找不到後端服務（HTTP ${res.status}），請確認這個網址有正確部署 API，而不是純靜態展示頁`;
-        }
-        return;
-      }
-      currentUser = await res.json();
-      document.getElementById("loginPassword").value = "";
-      errEl.textContent = "";
-      hideLoginGate();
-      await bootApp();
-    }catch(e){
-      errEl.textContent = "登入時發生錯誤，請確認網路連線";
-    }finally{
-      btn.disabled = false;
-    }
+  async function deletePhotoBlob(id){
+    const db = await openPhotoDb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction("photos", "readwrite");
+      tx.objectStore("photos").delete(id);
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
   }
-  document.getElementById("loginBtn").addEventListener("click", doLogin);
-  document.getElementById("loginPassword").addEventListener("keydown", e=>{
-    if(e.key === "Enter") doLogin();
-  });
-  document.getElementById("loginPwdToggle").addEventListener("click", ()=>{
-    const pwdInput = document.getElementById("loginPassword");
-    const btn = document.getElementById("loginPwdToggle");
-    const showing = pwdInput.type === "text";
-    pwdInput.type = showing ? "password" : "text";
-    btn.textContent = showing ? "👁️" : "🙈";
-    btn.setAttribute("aria-label", showing ? "顯示密碼" : "隱藏密碼");
-  });
-  document.getElementById("mLogout").addEventListener("click", ()=>{
-    showConfirm("確定要登出嗎？", async ()=>{
-      try{ await fetch(API_BASE + "/auth/logout", {method:"POST", credentials:"include"}); }catch(e){}
-      menuOverlay.classList.remove("open");
-      showLoginGate("");
-    }, {title:"登出", okLabel:"登出", danger:true});
-  });
+  async function clearAllPhotoBlobs(){
+    const db = await openPhotoDb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction("photos", "readwrite");
+      tx.objectStore("photos").clear();
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
+  }
+
+  // photoId -> objectURL 快取，避免重複 render 時重複產生/洩漏 object URL
+  const photoUrlCache = new Map();
+  async function resolvePhotoUrl(id){
+    if(photoUrlCache.has(id)) return photoUrlCache.get(id);
+    const rec = await getPhotoBlob(id);
+    if(!rec) return null;
+    const url = URL.createObjectURL(rec.blob);
+    photoUrlCache.set(id, url);
+    return url;
+  }
+  function forgetPhotoUrl(id){
+    const url = photoUrlCache.get(id);
+    if(url) URL.revokeObjectURL(url);
+    photoUrlCache.delete(id);
+  }
 
   // ---- 自訂確認彈窗（取代原生 confirm，避免在受限預覽環境被封鎖） ----
   let pendingConfirmCallback = null;
@@ -961,57 +914,52 @@
   });
 
 
-  // readingsCache：{ monthKey: { siteId: {curr, photos:[{id,url}]} } }，開機時一次從伺服器抓齊全部月份
+  // readingsCache：{ monthKey: { siteId: {curr, photos:[{id,url}]} } }，開機時從 localStorage/IndexedDB 整批載入
   let readingsCache = {};
 
-  // 站點 id 在畫面上一律以字串比對（沿用舊版 uid() 的慣例，配合 dataset.* 都是字串）
+  // 站點 id 一律以字串比對（新站點用 crypto.randomUUID() 產生，配合 dataset.* 都是字串）
   async function loadSites(){
-    const list = await apiJson("GET", "/sites");
-    sites = list.map(s=>({id:String(s.id), group:s.group, site:s.site, location:s.location, meterNo:s.meterNo, type:s.type, basePrev:s.basePrev}));
+    sites = JSON.parse(localStorage.getItem(LS_SITES) || "[]");
   }
   async function apiSaveSite(site){
-    await apiJson("PUT", "/sites/"+site.id, {
-      group: site.group, site: site.site, location: site.location,
-      meterNo: site.meterNo, type: site.type, basePrev: site.basePrev
-    });
+    const idx = sites.findIndex(s=>s.id===site.id);
+    if(idx !== -1) sites[idx] = {...sites[idx], ...site};
+    persistSites();
   }
 
   async function loadAllReadings(){
-    const list = await apiJson("GET", "/readings/all");
+    const slim = JSON.parse(localStorage.getItem(LS_READINGS) || "{}");
     readingsCache = {};
-    list.forEach(r=>{
-      if(!readingsCache[r.monthKey]) readingsCache[r.monthKey] = {};
-      readingsCache[r.monthKey][r.siteId] = {curr: r.curr===null||r.curr===undefined ? "" : String(r.curr), photos: r.photos||[]};
-    });
+    for(const monthKey in slim){
+      readingsCache[monthKey] = {};
+      for(const siteId in slim[monthKey]){
+        const r = slim[monthKey][siteId];
+        const photos = await Promise.all((r.photos||[]).map(async p=>({id:p.id, url: await resolvePhotoUrl(p.id)})));
+        readingsCache[monthKey][siteId] = {curr: r.curr===null||r.curr===undefined ? "" : String(r.curr), photos: photos.filter(p=>p.url)};
+      }
+    }
   }
 
   function loadReadings(monthKey){
     return readingsCache[monthKey] || (readingsCache[monthKey] = {});
   }
 
-  // 本期讀數輸入採防抖動儲存，避免每個按鍵都打一次 API
+  // 本期讀數輸入採防抖動寫入 localStorage，避免每個按鍵都寫一次
   const currSaveTimers = {};
   function scheduleSaveCurrValue(siteId, monthKey, value){
     const key = siteId + "|" + monthKey;
     clearTimeout(currSaveTimers[key]);
-    currSaveTimers[key] = setTimeout(async ()=>{
-      try{
-        await apiJson("PUT", `/readings/${siteId}?month=${encodeURIComponent(monthKey)}`, {
-          curr: value === "" ? null : parseFloat(value)
-        });
-      }catch(e){ showToast(e.message || "本期讀數儲存失敗"); }
+    currSaveTimers[key] = setTimeout(()=>{
+      delete currSaveTimers[key];
+      persistReadings();
     }, 500);
   }
   function flushPendingCurrSaves(){
     Object.keys(currSaveTimers).forEach(key=>{
       clearTimeout(currSaveTimers[key]);
-      const [siteId, monthKey] = key.split("|");
-      const r = loadReadings(monthKey)[siteId];
-      const value = r ? r.curr : "";
-      apiJson("PUT", `/readings/${siteId}?month=${encodeURIComponent(monthKey)}`, {
-        curr: value === "" || value === undefined ? null : parseFloat(value)
-      }).catch(e=>showToast(e.message || "本期讀數儲存失敗"));
+      delete currSaveTimers[key];
     });
+    persistReadings();
   }
 
   // ---- Month select ----
@@ -1317,13 +1265,19 @@
 
   function deleteSite(siteId){
     showConfirm("確定要刪除這個站點嗎？此動作無法復原。", async ()=>{
-      try{
-        await apiJson("DELETE", "/sites/"+siteId);
-      }catch(e){
-        showToast(e.message || "刪除失敗");
-        return;
-      }
       sites = sites.filter(s=>s.id!==siteId);
+      persistSites();
+      for(const monthKey in readingsCache){
+        const r = readingsCache[monthKey][siteId];
+        if(r){
+          for(const photo of (r.photos||[])){
+            forgetPhotoUrl(photo.id);
+            await deletePhotoBlob(photo.id);
+          }
+          delete readingsCache[monthKey][siteId];
+        }
+      }
+      persistReadings();
       render();
       showToast("站點已刪除");
     }, {title:"刪除站點", okLabel:"刪除", danger:true});
@@ -1417,12 +1371,13 @@
     try{
       if(editingSiteId){
         const s = sites.find(x=>x.id===editingSiteId);
-        await apiJson("PUT", "/sites/"+editingSiteId, payload);
         Object.assign(s, payload);
+        persistSites();
         showToast("站點資料已更新");
       }else{
-        const created = await apiJson("POST", "/sites", payload);
-        sites.push({id:String(created.id), group:created.group, site:created.site, location:created.location, meterNo:created.meterNo, type:created.type, basePrev:created.basePrev});
+        const created = {id: crypto.randomUUID(), ...payload};
+        sites.push(created);
+        persistSites();
         showToast("站點已新增");
       }
       overlay.classList.remove("open");
@@ -1442,7 +1397,6 @@
   document.getElementById("menuBtn").addEventListener("click", ()=>{
     populateMenuStats();
     syncDarkToggleUI();
-    document.getElementById("loggedInAsLabel").textContent = currentUser ? `目前登入：${currentUser.username}` : "";
     menuOverlay.classList.add("open");
   });
   document.getElementById("menuCloseBtn").addEventListener("click", ()=>menuOverlay.classList.remove("open"));
@@ -1534,13 +1488,19 @@
     setTimeout(()=>printWin.print(), 300);
   });
 
-  // ---- 匯出完整備份 JSON（站點與各月讀數；照片檔案留在伺服器，不含在備份內）----
+  // ---- 匯出完整備份 JSON（站點與各月讀數；照片只存在這台裝置，不含在備份內）----
   document.getElementById("mExportJson").addEventListener("click", exportData);
 
   async function exportData(){
     try{
-      const payload = await apiJson("GET", "/backup/export");
-      payload.exportedAt = new Date().toISOString();
+      const readings = [];
+      for(const monthKey in readingsCache){
+        for(const siteId in readingsCache[monthKey]){
+          const r = readingsCache[monthKey][siteId];
+          readings.push({siteId, monthKey, curr: (r.curr===""||r.curr===undefined||r.curr===null) ? null : parseFloat(r.curr)});
+        }
+      }
+      const payload = {sites, readings, exportedAt: new Date().toISOString()};
       const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1566,12 +1526,20 @@
         const payload = JSON.parse(ev.target.result);
         if(!payload.sites || !payload.readings){ throw new Error("格式不正確"); }
         showConfirm(
-          `確定要還原備份嗎？這會覆蓋伺服器上目前所有站點與抄錄紀錄（照片檔案不受影響）。\n備份時間：${payload.exportedAt||"未知"}`,
+          `確定要還原備份嗎？這會覆蓋目前所有站點與抄錄紀錄（本機既有照片不受影響）。\n備份時間：${payload.exportedAt||"未知"}`,
           async ()=>{
             try{
-              await apiJson("POST", "/backup/import", payload);
-              await loadSites();
-              await loadAllReadings();
+              const newCache = {};
+              (payload.readings||[]).forEach(r=>{
+                const monthKey = r.monthKey, siteId = String(r.siteId);
+                if(!newCache[monthKey]) newCache[monthKey] = {};
+                const existing = (readingsCache[monthKey] && readingsCache[monthKey][siteId]) ? readingsCache[monthKey][siteId].photos : [];
+                newCache[monthKey][siteId] = {curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr), photos: existing || []};
+              });
+              sites = (payload.sites||[]).map(s=>({...s, id:String(s.id)}));
+              readingsCache = newCache;
+              persistSites();
+              persistReadings();
               menuOverlay.classList.remove("open");
               render();
               showToast("備份已還原");
@@ -1611,15 +1579,18 @@
     showConfirm(
       `確定要清除「${currentMonthKey}」本期所有抄錄讀數與照片嗎？站點資料不會被刪除。`,
       async ()=>{
-        try{
-          await apiJson("DELETE", "/readings?month="+encodeURIComponent(currentMonthKey));
-          delete readingsCache[currentMonthKey];
-          menuOverlay.classList.remove("open");
-          render();
-          showToast("本期抄錄資料已清除");
-        }catch(e){
-          showToast(e.message || "清除失敗");
+        const monthData = readingsCache[currentMonthKey] || {};
+        for(const siteId in monthData){
+          for(const photo of (monthData[siteId].photos||[])){
+            forgetPhotoUrl(photo.id);
+            await deletePhotoBlob(photo.id);
+          }
         }
+        delete readingsCache[currentMonthKey];
+        persistReadings();
+        menuOverlay.classList.remove("open");
+        render();
+        showToast("本期抄錄資料已清除");
       },
       {title:"清除本期抄錄資料", okLabel:"清除", danger:true}
     );
@@ -1633,16 +1604,16 @@
         showConfirm(
           "請再次確認：真的要清除全部資料嗎？",
           async ()=>{
-            try{
-              await apiJson("POST", "/backup/clear-all");
-              sites = [];
-              readingsCache = {};
-              menuOverlay.classList.remove("open");
-              render();
-              showToast("所有資料已清除");
-            }catch(e){
-              showToast(e.message || "清除失敗");
-            }
+            sites = [];
+            readingsCache = {};
+            persistSites();
+            persistReadings();
+            photoUrlCache.forEach(url=>URL.revokeObjectURL(url));
+            photoUrlCache.clear();
+            await clearAllPhotoBlobs();
+            menuOverlay.classList.remove("open");
+            render();
+            showToast("所有資料已清除");
           },
           {title:"最終確認", okLabel:"永久清除", danger:true}
         );
@@ -2098,26 +2069,21 @@
     const targetId = currentPhotoTargetId;
     e.target.value = "";
     if(!file || !targetId) return;
-    showToast("照片上傳中…");
+    showToast("照片儲存中…");
     try{
-      const form = new FormData();
-      form.append("file", file);
-      const res = await apiFetch(`/readings/${targetId}/photos?month=${encodeURIComponent(currentMonthKey)}`, {
-        method: "POST", body: form
-      });
-      if(!res.ok){
-        const j = await res.json().catch(()=>({}));
-        throw new Error(j.message || "照片上傳失敗");
-      }
-      const photo = await res.json();
+      const id = crypto.randomUUID();
+      await savePhotoBlob(id, file, file.type);
+      const url = await resolvePhotoUrl(id);
+      const photo = {id, url};
       const readings = loadReadings(currentMonthKey);
       if(!readings[targetId]) readings[targetId] = {curr:"", photos:[]};
       if(!readings[targetId].photos) readings[targetId].photos = [];
       readings[targetId].photos.push(photo);
+      persistReadings();
       render();
       showToast("照片已附加");
     }catch(err){
-      showToast(err.message || "照片上傳失敗");
+      showToast(err.message || "照片儲存失敗");
     }
   });
 
@@ -2224,22 +2190,7 @@
       showToast(e.message || "載入資料失敗，請重新整理頁面");
     }
   }
-  // 登入驗證暫時停用：略過 checkAuth() 直接開機，需要恢復時把下面這段換回註解掉的版本
-  (async ()=>{
-    hideLoginGate();
-    await bootApp();
-  })();
-  /*
-  (async ()=>{
-    const authed = await checkAuth().catch(()=>false);
-    if(authed){
-      hideLoginGate();
-      await bootApp();
-    }else{
-      showLoginGate("");
-    }
-  })();
-  */
+  bootApp();
 })();
 </script>
 </body>

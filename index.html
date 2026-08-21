@@ -771,6 +771,12 @@
 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
 <div class="toast" id="toast"></div>
 
+<!-- 照片放大檢視 -->
+<div class="overlay" id="photoViewerOverlay" style="z-index:250; align-items:center;">
+  <img id="photoViewerImg" alt="照片放大檢視" style="max-width:92vw; max-height:86vh; border-radius:10px; object-fit:contain;">
+  <button type="button" id="photoViewerCloseBtn" aria-label="關閉" style="position:absolute; top:16px; right:16px; width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,.15); color:#fff; font-size:22px; line-height:1; cursor:pointer;">✕</button>
+</div>
+
 <!-- 自訂確認彈窗（取代瀏覽器原生 confirm/alert，避免部分環境阻擋跳出視窗） -->
 <div class="overlay" id="confirmOverlay">
   <div class="sheet confirm-sheet">
@@ -883,6 +889,19 @@
     if(url) URL.revokeObjectURL(url);
     photoUrlCache.delete(id);
   }
+
+  // ---- 照片放大檢視 ----
+  function openPhotoViewer(url){
+    document.getElementById("photoViewerImg").src = url;
+    document.getElementById("photoViewerOverlay").classList.add("open");
+  }
+  function closePhotoViewer(){
+    document.getElementById("photoViewerOverlay").classList.remove("open");
+  }
+  document.getElementById("photoViewerCloseBtn").addEventListener("click", closePhotoViewer);
+  document.getElementById("photoViewerOverlay").addEventListener("click", e=>{
+    if(e.target.id === "photoViewerOverlay") closePhotoViewer();
+  });
 
   // ---- 自訂確認彈窗（取代原生 confirm，避免在受限預覽環境被封鎖） ----
   let pendingConfirmCallback = null;
@@ -1090,6 +1109,8 @@
         r.photos.forEach(photo=>{
           const img = document.createElement("img");
           img.src = photo.url;
+          img.style.cursor = "pointer";
+          img.addEventListener("click", ()=>openPhotoViewer(photo.url));
           pv.appendChild(img);
         });
       }

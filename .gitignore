@@ -13,3 +13,7 @@ backend/**/appsettings.*.local.json
 
 # 打包發布輸出
 publish/
+
+# .NET 桌面版（免安裝 exe 太大不進 git，建置產物見 desktop/README.md）
+desktop/**/bin/
+desktop/**/obj/

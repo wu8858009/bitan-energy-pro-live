@@ -30,6 +30,7 @@ public class AccountsController : ControllerBase
         Id = u.Id,
         Username = u.Username,
         Role = u.Role,
+        AssignedGroups = u.AssignedGroups,
         CreatedAt = u.CreatedAt
     };
 
@@ -57,7 +58,8 @@ public class AccountsController : ControllerBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Username = req.Username,
-            Role = req.Role
+            Role = req.Role,
+            AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>())
         };
         user.PasswordHash = Hasher.HashPassword(user, req.Password);
         await _db.AdminUsers.InsertOneAsync(user);
@@ -70,6 +72,8 @@ public class AccountsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(req.Username))
             return BadRequest(new { message = "請輸入帳號名稱" });
+        if (!AllowedRoles.Contains(req.Role))
+            return BadRequest(new { message = "角色不正確" });
 
         var user = await _db.AdminUsers.Find(u => u.Id == id).FirstOrDefaultAsync();
         if (user == null) return NotFound();
@@ -87,6 +91,15 @@ public class AccountsController : ControllerBase
                 return BadRequest(new { message = "密碼至少需要 6 個字元" });
             user.PasswordHash = Hasher.HashPassword(user, req.NewPassword);
         }
+
+        if (user.Role == "Admin" && req.Role != "Admin")
+        {
+            var adminCount = await _db.AdminUsers.CountDocumentsAsync(u => u.Role == "Admin");
+            if (adminCount <= 1)
+                return BadRequest(new { message = "至少需要保留一個管理員帳號" });
+        }
+        user.Role = req.Role;
+        user.AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>());
 
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == id, user);
         return Ok(ToDto(user));

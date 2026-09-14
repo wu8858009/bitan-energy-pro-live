@@ -39,13 +39,33 @@ public class ReadingsController : ControllerBase
             .ToList() ?? new List<PhotoDto>()
     };
 
+    // 回傳這個使用者看得到的站點 id 清單（Admin 回傳 null 代表不限制，呼叫端自行處理）。
+    private async Task<List<string>?> GetAllowedSiteIdsAsync()
+    {
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        if (allowedGroups == null) return null;
+        return await _db.Sites.Find(Builders<Site>.Filter.In(s => s.Group, allowedGroups))
+            .Project(s => s.Id).ToListAsync();
+    }
+
+    private async Task<bool> CanAccessSiteAsync(string siteId)
+    {
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        if (allowedGroups == null) return true;
+        var site = await _db.Sites.Find(s => s.Id == siteId).FirstOrDefaultAsync();
+        return site != null && allowedGroups.Contains(site.Group);
+    }
+
     // GET /api/readings?month=YYYY-MM
     [HttpGet("readings")]
     public async Task<ActionResult<List<ReadingDto>>> GetByMonth([FromQuery] string month)
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
 
-        var siteIds = await _db.Sites.Find(_ => true).Project(s => s.Id).ToListAsync();
+        var allowedIds = await GetAllowedSiteIdsAsync();
+        var siteFilter = allowedIds == null ? FilterDefinition<Site>.Empty : Builders<Site>.Filter.In(s => s.Id, allowedIds);
+        var siteIds = await _db.Sites.Find(siteFilter).Project(s => s.Id).ToListAsync();
+
         var readings = await _db.MonthlyReadings.Find(r => r.MonthKey == month).ToListAsync();
         var bySite = readings.ToDictionary(r => r.SiteId);
 
@@ -57,7 +77,12 @@ public class ReadingsController : ControllerBase
     [HttpGet("readings/all")]
     public async Task<ActionResult<List<AllReadingDto>>> GetAll()
     {
-        var readings = await _db.MonthlyReadings.Find(_ => true).ToListAsync();
+        var allowedIds = await GetAllowedSiteIdsAsync();
+        var readingFilter = allowedIds == null
+            ? FilterDefinition<MonthlyReading>.Empty
+            : Builders<MonthlyReading>.Filter.In(r => r.SiteId, allowedIds);
+
+        var readings = await _db.MonthlyReadings.Find(readingFilter).ToListAsync();
         var result = readings.Select(r => new AllReadingDto
         {
             SiteId = r.SiteId,
@@ -70,18 +95,23 @@ public class ReadingsController : ControllerBase
         return Ok(result);
     }
 
-    // DELETE /api/readings?month=YYYY-MM — 清除單一月份所有站點的讀數與照片，站點本身保留
+    // DELETE /api/readings?month=YYYY-MM — 清除單一月份「自己看得到的站點」的讀數與照片，站點本身保留
     [HttpDelete("readings")]
     public async Task<IActionResult> DeleteMonth([FromQuery] string month)
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
 
-        var readings = await _db.MonthlyReadings.Find(r => r.MonthKey == month).ToListAsync();
+        var allowedIds = await GetAllowedSiteIdsAsync();
+        var filter = allowedIds == null
+            ? Builders<MonthlyReading>.Filter.Eq(r => r.MonthKey, month)
+            : Builders<MonthlyReading>.Filter.Eq(r => r.MonthKey, month) & Builders<MonthlyReading>.Filter.In(r => r.SiteId, allowedIds);
+
+        var readings = await _db.MonthlyReadings.Find(filter).ToListAsync();
 
         var uploadsRoot = UploadsRoot();
         var filePaths = readings.SelectMany(r => r.Photos).Select(p => p.FilePath).ToList();
 
-        await _db.MonthlyReadings.DeleteManyAsync(r => r.MonthKey == month);
+        await _db.MonthlyReadings.DeleteManyAsync(filter);
 
         foreach (var relPath in filePaths)
         {
@@ -99,8 +129,7 @@ public class ReadingsController : ControllerBase
     public async Task<ActionResult<ReadingDto>> Upsert(string siteId, [FromQuery] string month, [FromBody] ReadingUpsertRequest req)
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
-        var siteExists = await _db.Sites.Find(s => s.Id == siteId).AnyAsync();
-        if (!siteExists) return NotFound();
+        if (!await CanAccessSiteAsync(siteId)) return Forbid();
 
         var filter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
         var update = Builders<MonthlyReading>.Update
@@ -129,8 +158,7 @@ public class ReadingsController : ControllerBase
         if (!allowed.Contains(file.ContentType))
             return BadRequest(new { message = "不支援的圖片格式" });
 
-        var siteExists = await _db.Sites.Find(s => s.Id == siteId).AnyAsync();
-        if (!siteExists) return NotFound();
+        if (!await CanAccessSiteAsync(siteId)) return Forbid();
 
         // Ensure the reading document exists before appending the photo.
         var ensureFilter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
@@ -178,7 +206,8 @@ public class ReadingsController : ControllerBase
     {
         var reading = await _db.MonthlyReadings.Find(r => r.Photos.Any(p => p.Id == photoId)).FirstOrDefaultAsync();
         var photo = reading?.Photos.FirstOrDefault(p => p.Id == photoId);
-        if (photo == null) return NotFound();
+        if (photo == null || reading == null) return NotFound();
+        if (!await CanAccessSiteAsync(reading.SiteId)) return Forbid();
 
         var absPath = Path.Combine(UploadsRoot(), photo.FilePath.Replace('/', Path.DirectorySeparatorChar));
         if (!System.IO.File.Exists(absPath)) return NotFound();
@@ -193,11 +222,12 @@ public class ReadingsController : ControllerBase
     {
         var reading = await _db.MonthlyReadings.Find(r => r.Photos.Any(p => p.Id == photoId)).FirstOrDefaultAsync();
         var photo = reading?.Photos.FirstOrDefault(p => p.Id == photoId);
-        if (photo == null) return NotFound();
+        if (photo == null || reading == null) return NotFound();
+        if (!await CanAccessSiteAsync(reading.SiteId)) return Forbid();
 
         var absPath = Path.Combine(UploadsRoot(), photo.FilePath.Replace('/', Path.DirectorySeparatorChar));
         await _db.MonthlyReadings.UpdateOneAsync(
-            r => r.Id == reading!.Id,
+            r => r.Id == reading.Id,
             Builders<MonthlyReading>.Update.PullFilter(r => r.Photos, p => p.Id == photoId));
 
         if (System.IO.File.Exists(absPath))

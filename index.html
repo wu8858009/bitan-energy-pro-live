@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.4">
+<meta name="app-build" content="4.5">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -378,6 +378,12 @@
   body.dark-mode .account-row{border-bottom-color:#26304a;}
   body.dark-mode .account-row .ar-actions button{background:#1a2337; color:var(--ink-soft);}
   body.dark-mode .account-row .ar-actions button.danger{background:#2a1518; color:#ff8a80;}
+  .group-chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .group-chip{border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700; color:var(--ink-soft);}
+  .group-chip.active{border-color:var(--navy-800); background:#eaf0ff; color:var(--navy-900);}
+  .group-chips-empty{font-size:12.5px; color:var(--ink-soft);}
+  body.dark-mode .group-chip{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
+  body.dark-mode .group-chip.active{border-color:var(--blue-tag); background:rgba(47,123,246,.18); color:#7aa8ff;}
 
   /* ===== 圖表分析 ===== */
   .chart-sheet{max-width:520px;}
@@ -636,7 +642,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.4</span>
+    <span class="pro-badge">PRO v4.5</span>
   </div>
 
   <div class="control-panel">
@@ -864,7 +870,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.4 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.5 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -928,12 +934,16 @@
       <label>帳號名稱</label>
       <input type="text" id="af_username" placeholder="例：admin">
     </div>
-    <div class="form-group" id="af_roleGroup">
+    <div class="form-group">
       <label>角色</label>
       <select id="af_role">
         <option value="User" selected>一般使用者</option>
-        <option value="Admin">管理員（可管理帳號）</option>
+        <option value="Admin">管理員（可管理帳號，不受門市限制）</option>
       </select>
+    </div>
+    <div class="form-group" id="af_groupsGroup">
+      <label>可管理門市（僅一般使用者適用，不勾選表示看不到任何站點）</label>
+      <div class="group-chips" id="af_groupsList"></div>
     </div>
     <div class="form-group" style="margin-bottom:0;">
       <label id="af_passwordLabel">密碼</label>
@@ -1666,18 +1676,23 @@
     try{
       const accounts = await apiFetch("/accounts").then(r=>r.json());
       const list = document.getElementById("accountsList");
-      list.innerHTML = accounts.map(a=>`
+      list.innerHTML = accounts.map(a=>{
+        const roleLabel = ROLE_LABEL[a.role] || a.role;
+        const groupsLabel = a.role === "Admin"
+          ? "不受門市限制"
+          : ((a.assignedGroups && a.assignedGroups.length) ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、") : "尚未指派任何門市");
+        return `
         <div class="account-row">
           <div class="ar-info">
             <div class="ar-name">${escapeHtml(a.username)}</div>
-            <div class="ar-role">${ROLE_LABEL[a.role] || a.role}</div>
+            <div class="ar-role">${roleLabel} ・ ${groupsLabel}</div>
           </div>
           <div class="ar-actions">
             <button type="button" data-edit-account="${a.id}">編輯</button>
             <button type="button" class="danger" data-del-account="${a.id}">刪除</button>
           </div>
-        </div>
-      `).join("") || `<div class="chart-empty">目前沒有帳號</div>`;
+        </div>`;
+      }).join("") || `<div class="chart-empty">目前沒有帳號</div>`;
 
       list.querySelectorAll("[data-edit-account]").forEach(btn=>{
         btn.addEventListener("click", ()=>{
@@ -1696,14 +1711,42 @@
     }
   }
 
+  // 可指派的門市清單，取自目前已知站點的群組名稱（不重複、排序）
+  let selectedGroups = new Set();
+  function allKnownGroups(){
+    return [...new Set(sites.map(s=>s.group).filter(g=>g && g.trim()))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+  }
+  function renderGroupChips(){
+    const wrap = document.getElementById("af_groupsList");
+    const groups = allKnownGroups();
+    if(groups.length === 0){
+      wrap.innerHTML = `<div class="group-chips-empty">目前還沒有任何站點群組可選，請先到「新增」建立站點</div>`;
+      return;
+    }
+    wrap.innerHTML = groups.map(g=>`<button type="button" class="group-chip${selectedGroups.has(g)?" active":""}" data-group="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join("");
+    wrap.querySelectorAll(".group-chip").forEach(chip=>{
+      chip.addEventListener("click", ()=>{
+        const g = chip.dataset.group;
+        if(selectedGroups.has(g)) selectedGroups.delete(g); else selectedGroups.add(g);
+        chip.classList.toggle("active", selectedGroups.has(g));
+      });
+    });
+  }
+  function syncGroupsGroupVisibility(){
+    document.getElementById("af_groupsGroup").hidden = document.getElementById("af_role").value === "Admin";
+  }
+  document.getElementById("af_role").addEventListener("change", syncGroupsGroupVisibility);
+
   function openAccountForm(mode, account){
     editingAccountId = mode === "edit" ? account.id : null;
     document.getElementById("accountFormTitle").textContent = mode === "edit" ? "修改帳號" : "新增帳號";
     document.getElementById("af_username").value = mode === "edit" ? account.username : "";
     document.getElementById("af_password").value = "";
     document.getElementById("af_password").placeholder = mode === "edit" ? "留空表示不修改密碼" : "至少 6 個字元";
-    document.getElementById("af_roleGroup").hidden = mode === "edit";
-    if(mode !== "edit") document.getElementById("af_role").value = "User";
+    document.getElementById("af_role").value = mode === "edit" ? account.role : "User";
+    selectedGroups = new Set(mode === "edit" ? (account.assignedGroups || []) : []);
+    renderGroupChips();
+    syncGroupsGroupVisibility();
     accountsOverlay.classList.remove("open");
     accountFormOverlay.classList.add("open");
   }
@@ -1719,6 +1762,8 @@
   document.getElementById("accountFormSaveBtn").addEventListener("click", async ()=>{
     const username = document.getElementById("af_username").value.trim();
     const password = document.getElementById("af_password").value;
+    const role = document.getElementById("af_role").value;
+    const assignedGroups = role === "Admin" ? [] : [...selectedGroups];
     const btn = document.getElementById("accountFormSaveBtn");
     if(!username){ showToast("請輸入帳號名稱"); return; }
     btn.disabled = true;
@@ -1726,15 +1771,14 @@
       if(editingAccountId){
         await apiFetch("/accounts/"+editingAccountId, {
           method:"PUT", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, newPassword: password || null})
+          body: JSON.stringify({username, newPassword: password || null, role, assignedGroups})
         });
         showToast("帳號已更新");
       }else{
         if(!password || password.length < 6){ showToast("密碼至少需要 6 個字元"); btn.disabled = false; return; }
-        const role = document.getElementById("af_role").value;
         await apiFetch("/accounts", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, password, role})
+          body: JSON.stringify({username, password, role, assignedGroups})
         });
         showToast("帳號已新增");
       }

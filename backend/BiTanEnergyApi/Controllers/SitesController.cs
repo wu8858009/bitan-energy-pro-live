@@ -5,6 +5,7 @@ using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
+using BiTanEnergyApi.Services;
 
 namespace BiTanEnergyApi.Controllers;
 
@@ -34,7 +35,12 @@ public class SitesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<SiteDto>>> GetAll()
     {
-        var sites = await _db.Sites.Find(_ => true).SortBy(s => s.Id).ToListAsync();
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        var filter = allowedGroups == null
+            ? FilterDefinition<Site>.Empty
+            : Builders<Site>.Filter.In(s => s.Group, allowedGroups);
+
+        var sites = await _db.Sites.Find(filter).SortBy(s => s.Id).ToListAsync();
         return Ok(sites.Select(ToDto));
     }
 
@@ -43,6 +49,10 @@ public class SitesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
+
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        if (allowedGroups != null && !allowedGroups.Contains(req.Group))
+            return Forbid();
 
         var site = new Site
         {
@@ -67,6 +77,10 @@ public class SitesController : ControllerBase
         var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
 
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        if (allowedGroups != null && (!allowedGroups.Contains(site.Group) || !allowedGroups.Contains(req.Group)))
+            return Forbid();
+
         site.Group = req.Group;
         site.Name = req.Site;
         site.Location = req.Location;
@@ -82,6 +96,10 @@ public class SitesController : ControllerBase
     {
         var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
+
+        var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
+        if (allowedGroups != null && !allowedGroups.Contains(site.Group))
+            return Forbid();
 
         // Mongo has no FK cascade — clean up the site's readings (and their embedded
         // photos) explicitly. Note: this does not delete the photos' physical files,

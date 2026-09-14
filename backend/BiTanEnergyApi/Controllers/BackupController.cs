@@ -9,9 +9,11 @@ using BiTanEnergyApi.Services;
 
 namespace BiTanEnergyApi.Controllers;
 
+// 備份匯出/匯入/清除全部都是跨門市、系統全域的操作，限 Admin 角色才能用，
+// 避免一般使用者透過備份功能看到或動到不屬於自己門市的資料。
 [ApiController]
 [Route("api/backup")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class BackupController : ControllerBase
 {
     private readonly MongoContext _db;

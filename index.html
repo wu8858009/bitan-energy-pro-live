@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.0">
+<meta name="app-build" content="4.1">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -185,6 +185,11 @@
   .curr-field input{
     width:100%; border:1px solid var(--line); border-radius:10px; background:#fff;
     padding:12px; font-size:21px; font-weight:800; color:var(--ink); outline:none;
+    -moz-appearance:textfield;
+  }
+  .curr-field input::-webkit-outer-spin-button,
+  .curr-field input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
   }
   .curr-field input:focus{border-color:var(--blue-tag); box-shadow:0 0 0 3px rgba(47,123,246,.12);}
   .type-elec .curr-field input:focus{border-color:var(--elec); box-shadow:0 0 0 3px rgba(245,180,0,.15);}
@@ -604,7 +609,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.0</span>
+    <span class="pro-badge">PRO v4.1</span>
   </div>
 
   <div class="control-panel">
@@ -847,7 +852,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.0 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.1 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

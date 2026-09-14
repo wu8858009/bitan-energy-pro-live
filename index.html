@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.3">
+<meta name="app-build" content="4.4">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -366,6 +366,19 @@
   .toggle-switch.on::after{left:21px;}
   .menu-version{text-align:center; color:var(--ink-soft); font-size:12px; font-weight:600; padding-top:4px;}
 
+  /* ===== 帳號管理 ===== */
+  .account-row{display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid var(--line);}
+  .account-row:last-child{border-bottom:none;}
+  .account-row .ar-info{flex:1; min-width:0; overflow-wrap:break-word; word-break:break-word;}
+  .account-row .ar-name{font-weight:800; font-size:14.5px;}
+  .account-row .ar-role{font-size:11.5px; color:var(--ink-soft); font-weight:600; margin-top:2px;}
+  .account-row .ar-actions{display:flex; gap:6px; flex:0 0 auto;}
+  .account-row .ar-actions button{border:none; border-radius:8px; padding:7px 10px; font-size:12px; font-weight:700; background:#eef0f4; color:var(--ink-soft);}
+  .account-row .ar-actions button.danger{color:var(--danger); background:#fff3f2;}
+  body.dark-mode .account-row{border-bottom-color:#26304a;}
+  body.dark-mode .account-row .ar-actions button{background:#1a2337; color:var(--ink-soft);}
+  body.dark-mode .account-row .ar-actions button.danger{background:#2a1518; color:#ff8a80;}
+
   /* ===== 圖表分析 ===== */
   .chart-sheet{max-width:520px;}
   .chart-tabs{display:flex; gap:8px; margin-bottom:16px;}
@@ -623,7 +636,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.3</span>
+    <span class="pro-badge">PRO v4.4</span>
   </div>
 
   <div class="control-panel">
@@ -836,6 +849,11 @@
 
     <div class="menu-section">
       <div class="menu-section-title">帳號</div>
+      <button type="button" class="menu-item" id="mAccountsBtn" hidden>
+        <span class="mi-ic">👤</span>
+        <span class="mi-label">帳號管理<span class="mi-sub">新增／刪除／修改登入帳號（僅管理員可見）</span></span>
+        <span class="mi-chev">›</span>
+      </button>
       <button type="button" class="menu-item danger" id="mLogout">
         <span class="mi-ic">🚪</span>
         <span class="mi-label">登出</span>
@@ -846,7 +864,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.3 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.4 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -886,6 +904,44 @@
 
     <div class="sheet-actions">
       <button class="btn-cancel" id="settingsCloseBtn">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帳號管理（僅 Admin 角色可見） -->
+<div class="overlay" id="accountsOverlay">
+  <div class="sheet">
+    <h2>帳號管理</h2>
+    <div id="accountsList"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="accountsCloseBtn">關閉</button>
+      <button class="btn-confirm" id="addAccountBtn">＋ 新增帳號</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增／修改帳號表單 -->
+<div class="overlay" id="accountFormOverlay">
+  <div class="sheet">
+    <h2 id="accountFormTitle">新增帳號</h2>
+    <div class="form-group">
+      <label>帳號名稱</label>
+      <input type="text" id="af_username" placeholder="例：admin">
+    </div>
+    <div class="form-group" id="af_roleGroup">
+      <label>角色</label>
+      <select id="af_role">
+        <option value="User" selected>一般使用者</option>
+        <option value="Admin">管理員（可管理帳號）</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label id="af_passwordLabel">密碼</label>
+      <input type="password" id="af_password" placeholder="至少 6 個字元" autocomplete="new-password">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="accountFormCancelBtn">取消</button>
+      <button class="btn-confirm" id="accountFormSaveBtn">儲存</button>
     </div>
   </div>
 </div>
@@ -990,6 +1046,7 @@
   let chosenType = "water";
   let currentMonthKey = null;
   let currentPhotoTargetId = null;
+  let currentUserRole = null;
 
   // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
   const API_BASE = "/api";
@@ -1586,6 +1643,122 @@
   });
   document.getElementById("settingsCloseBtn").addEventListener("click", ()=>settingsOverlay.classList.remove("open"));
   settingsOverlay.addEventListener("click", e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove("open"); });
+
+  // ---- 帳號管理（僅 Admin 角色看得到、打得進去） ----
+  const accountsOverlay = document.getElementById("accountsOverlay");
+  const accountFormOverlay = document.getElementById("accountFormOverlay");
+  const ROLE_LABEL = {Admin:"管理員", User:"一般使用者"};
+  let editingAccountId = null;
+
+  function applyRoleUI(){
+    document.getElementById("mAccountsBtn").hidden = currentUserRole !== "Admin";
+  }
+
+  document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{
+    menuOverlay.classList.remove("open");
+    await loadAccountsList();
+    accountsOverlay.classList.add("open");
+  });
+  document.getElementById("accountsCloseBtn").addEventListener("click", ()=>accountsOverlay.classList.remove("open"));
+  accountsOverlay.addEventListener("click", e=>{ if(e.target===accountsOverlay) accountsOverlay.classList.remove("open"); });
+
+  async function loadAccountsList(){
+    try{
+      const accounts = await apiFetch("/accounts").then(r=>r.json());
+      const list = document.getElementById("accountsList");
+      list.innerHTML = accounts.map(a=>`
+        <div class="account-row">
+          <div class="ar-info">
+            <div class="ar-name">${escapeHtml(a.username)}</div>
+            <div class="ar-role">${ROLE_LABEL[a.role] || a.role}</div>
+          </div>
+          <div class="ar-actions">
+            <button type="button" data-edit-account="${a.id}">編輯</button>
+            <button type="button" class="danger" data-del-account="${a.id}">刪除</button>
+          </div>
+        </div>
+      `).join("") || `<div class="chart-empty">目前沒有帳號</div>`;
+
+      list.querySelectorAll("[data-edit-account]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const acc = accounts.find(a=>a.id===btn.dataset.editAccount);
+          if(acc) openAccountForm("edit", acc);
+        });
+      });
+      list.querySelectorAll("[data-del-account]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const acc = accounts.find(a=>a.id===btn.dataset.delAccount);
+          if(acc) deleteAccount(acc);
+        });
+      });
+    }catch(e){
+      showToast(e.message || "載入帳號列表失敗");
+    }
+  }
+
+  function openAccountForm(mode, account){
+    editingAccountId = mode === "edit" ? account.id : null;
+    document.getElementById("accountFormTitle").textContent = mode === "edit" ? "修改帳號" : "新增帳號";
+    document.getElementById("af_username").value = mode === "edit" ? account.username : "";
+    document.getElementById("af_password").value = "";
+    document.getElementById("af_password").placeholder = mode === "edit" ? "留空表示不修改密碼" : "至少 6 個字元";
+    document.getElementById("af_roleGroup").hidden = mode === "edit";
+    if(mode !== "edit") document.getElementById("af_role").value = "User";
+    accountsOverlay.classList.remove("open");
+    accountFormOverlay.classList.add("open");
+  }
+  document.getElementById("addAccountBtn").addEventListener("click", ()=>openAccountForm("add"));
+  document.getElementById("accountFormCancelBtn").addEventListener("click", ()=>{
+    accountFormOverlay.classList.remove("open");
+    accountsOverlay.classList.add("open");
+  });
+  accountFormOverlay.addEventListener("click", e=>{
+    if(e.target===accountFormOverlay){ accountFormOverlay.classList.remove("open"); accountsOverlay.classList.add("open"); }
+  });
+
+  document.getElementById("accountFormSaveBtn").addEventListener("click", async ()=>{
+    const username = document.getElementById("af_username").value.trim();
+    const password = document.getElementById("af_password").value;
+    const btn = document.getElementById("accountFormSaveBtn");
+    if(!username){ showToast("請輸入帳號名稱"); return; }
+    btn.disabled = true;
+    try{
+      if(editingAccountId){
+        await apiFetch("/accounts/"+editingAccountId, {
+          method:"PUT", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({username, newPassword: password || null})
+        });
+        showToast("帳號已更新");
+      }else{
+        if(!password || password.length < 6){ showToast("密碼至少需要 6 個字元"); btn.disabled = false; return; }
+        const role = document.getElementById("af_role").value;
+        await apiFetch("/accounts", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({username, password, role})
+        });
+        showToast("帳號已新增");
+      }
+      accountFormOverlay.classList.remove("open");
+      await loadAccountsList();
+      accountsOverlay.classList.add("open");
+    }catch(e){
+      showToast(e.message || "儲存失敗");
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  function deleteAccount(account){
+    showConfirm(`確定要刪除帳號「${account.username}」嗎？此動作無法復原。`, async ()=>{
+      try{
+        await apiFetch("/accounts/"+account.id, {method:"DELETE"});
+        showToast("帳號已刪除");
+        await loadAccountsList();
+      }catch(e){
+        showToast(e.message || "刪除失敗");
+      }
+    }, {title:"刪除帳號", okLabel:"刪除", danger:true});
+  }
 
   // ---- 費用與預算設定 ----
   function syncSettingsUI(){
@@ -2683,7 +2856,9 @@
     loginErrorEl.classList.remove("show");
     btn.disabled = true;
     try{
-      await apiLogin(username, password);
+      const me = await apiLogin(username, password);
+      currentUserRole = me.role;
+      applyRoleUI();
       document.getElementById("loginPassword").value = "";
       hideLoginOverlay();
       await bootAppData();
@@ -2719,6 +2894,9 @@
     try{
       const res = await fetch(API_BASE + "/auth/me", {credentials:"include"});
       if(res.ok){
+        const me = await res.json();
+        currentUserRole = me.role;
+        applyRoleUI();
         hideLoginOverlay();
         await bootAppData();
       }else{

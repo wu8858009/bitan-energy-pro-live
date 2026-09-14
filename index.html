@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.1">
+<meta name="app-build" content="4.2">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -555,18 +555,32 @@
     .date-input{max-width:180px; flex:0 0 auto;}
   }
 
-  /* --- lg: 橫式平板／小筆電，三欄卡片，寬版標題列 --- */
+  /* --- lg: 橫式平板／小筆電，三欄卡片，寬版標題列，導覽列改成左側直式 --- */
   @media (min-width:1024px){
-    .topbar-inner, .content, .bottomnav-inner{max-width:1180px;}
+    .topbar-inner, .content{max-width:1180px;}
     .topbar{--tb-pad:32px; padding-top:18px;}
     .title-row h1{font-size:24px;}
     #cardList{grid-template-columns:repeat(3,1fr); gap:18px;}
     .content{padding:24px 32px 16px;}
     .search-input{padding:16px 18px 16px 48px; font-size:15px;}
     .summary-item .val{font-size:24px;}
-    .bottomnav{padding-top:10px;}
-    .nav-item{font-size:12px;}
+
+    /* 寬螢幕（含桌面版 App 預設視窗大小）不適合手機式貼底導覽，改成左側直式 */
+    body{padding-bottom:0; padding-left:96px;}
+    .bottomnav{
+      left:0; right:auto; top:0; bottom:0; width:96px;
+      border-top:none; border-right:1px solid var(--line);
+      box-shadow:4px 0 14px rgba(20,30,60,.06);
+      padding:24px 0;
+    }
+    .bottomnav-inner{
+      display:flex; flex-direction:column; align-items:stretch; gap:10px;
+      max-width:none; margin:0; width:100%;
+    }
+    .nav-item{font-size:11px; padding:10px 0;}
     .nav-item .ic{font-size:22px;}
+    body.dark-mode .bottomnav{border-right-color:#232c40; box-shadow:4px 0 14px rgba(0,0,0,.25);}
+
     /* 桌面用滑鼠操作時，卡片 hover 有輕微浮起回饋 */
     .meter-card{transition:box-shadow .15s ease, transform .15s ease;}
     .meter-card:hover{box-shadow:0 4px 10px rgba(20,30,60,.08), 0 16px 32px rgba(20,30,60,.08); transform:translateY(-2px);}
@@ -575,7 +589,7 @@
 
   /* --- xl: 桌機大螢幕，四欄卡片，容器再放寬 --- */
   @media (min-width:1400px){
-    .topbar-inner, .content, .bottomnav-inner{max-width:1520px;}
+    .topbar-inner, .content{max-width:1520px;}
     #cardList{grid-template-columns:repeat(4,1fr);}
   }
 
@@ -594,7 +608,7 @@
 
   /* --- 支援可摺疊/極寬螢幕：避免內容被拉得過寬過扁 --- */
   @media (min-width:1920px){
-    .topbar-inner, .content, .bottomnav-inner{max-width:1680px;}
+    .topbar-inner, .content{max-width:1680px;}
   }
 
   /* --- 減少動態效果偏好 --- */
@@ -609,7 +623,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.1</span>
+    <span class="pro-badge">PRO v4.2</span>
   </div>
 
   <div class="control-panel">
@@ -852,7 +866,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.1 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.2 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

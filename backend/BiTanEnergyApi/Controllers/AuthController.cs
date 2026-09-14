@@ -47,7 +47,7 @@ public class AuthController : ControllerBase
             new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14) });
 
-        return Ok(new MeResponse { Username = user.Username, Role = user.Role });
+        return Ok(new MeResponse { Username = user.Username, Role = user.Role, AssignedGroups = user.AssignedGroups });
     }
 
     [HttpPost("logout")]
@@ -58,15 +58,17 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
         if (User.Identity == null || !User.Identity.IsAuthenticated)
             return Unauthorized();
-        return Ok(new MeResponse
-        {
-            Username = User.Identity.Name ?? "",
-            Role = User.FindFirstValue(ClaimTypes.Role) ?? ""
-        });
+
+        // 每次都查最新的門市指派，這樣管理員改了指派後，使用者不用重新登入就會生效。
+        var uid = User.FindFirstValue("uid");
+        var user = await _db.AdminUsers.Find(u => u.Id == uid).FirstOrDefaultAsync();
+        if (user == null) return Unauthorized();
+
+        return Ok(new MeResponse { Username = user.Username, Role = user.Role, AssignedGroups = user.AssignedGroups });
     }
 
     [HttpPost("change-password")]

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.5">
+<meta name="app-build" content="4.6">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -642,7 +642,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.5</span>
+    <span class="pro-badge">PRO v4.6</span>
   </div>
 
   <div class="control-panel">
@@ -694,8 +694,9 @@
   <div class="sheet">
     <h2 id="sheetTitle">新增站點</h2>
     <div class="form-group">
-      <label>群組 / 客戶名稱</label>
+      <label>群組 / 客戶名稱（門市）</label>
       <input type="text" id="f_group" placeholder="例：吞吞吐吐">
+      <select id="f_group_select" hidden></select>
     </div>
     <div class="form-group">
       <label>站點名稱</label>
@@ -870,7 +871,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.5 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.6 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1057,6 +1058,7 @@
   let currentMonthKey = null;
   let currentPhotoTargetId = null;
   let currentUserRole = null;
+  let currentUserAssignedGroups = [];
 
   // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
   const API_BASE = "/api";
@@ -1555,11 +1557,38 @@
 
   // ---- Modal ----
   const overlay = document.getElementById("overlay");
+
+  // 一般使用者只能在自己被指派的門市底下新增/修改站點，群組欄位改成只能選、不能自由輸入；
+  // 管理員不受限，維持自由輸入。
+  function syncGroupFieldMode(currentValue){
+    const input = document.getElementById("f_group");
+    const select = document.getElementById("f_group_select");
+    if(currentUserRole === "User"){
+      select.innerHTML = currentUserAssignedGroups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+      select.value = (currentValue && currentUserAssignedGroups.includes(currentValue)) ? currentValue : (currentUserAssignedGroups[0] || "");
+      input.hidden = true;
+      select.hidden = false;
+    }else{
+      input.value = currentValue || "";
+      input.hidden = false;
+      select.hidden = true;
+    }
+  }
+  function getGroupFieldValue(){
+    return currentUserRole === "User"
+      ? document.getElementById("f_group_select").value
+      : document.getElementById("f_group").value.trim();
+  }
+
   function openAddSheet(){
+    if(currentUserRole === "User" && currentUserAssignedGroups.length === 0){
+      showToast("你尚未被指派任何門市，請聯絡管理員設定後再新增站點");
+      return;
+    }
     editingSiteId = null;
     chosenType = "water";
     document.getElementById("sheetTitle").textContent = "新增站點";
-    document.getElementById("f_group").value = "";
+    syncGroupFieldMode("");
     document.getElementById("f_site").value = "";
     document.getElementById("f_location").value = "";
     document.getElementById("f_meterno").value = "";
@@ -1573,7 +1602,7 @@
     editingSiteId = siteId;
     chosenType = site.type;
     document.getElementById("sheetTitle").textContent = "修改站點資料";
-    document.getElementById("f_group").value = site.group||"";
+    syncGroupFieldMode(site.group||"");
     document.getElementById("f_site").value = site.site||"";
     document.getElementById("f_location").value = site.location||"";
     document.getElementById("f_meterno").value = site.meterNo||"";
@@ -1599,7 +1628,7 @@
   overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.classList.remove("open"); });
 
   document.getElementById("confirmBtn").addEventListener("click", async ()=>{
-    const group = document.getElementById("f_group").value.trim();
+    const group = getGroupFieldValue();
     const site = document.getElementById("f_site").value.trim();
     const location = document.getElementById("f_location").value.trim();
     const meterNo = document.getElementById("f_meterno").value.trim();
@@ -2902,6 +2931,7 @@
     try{
       const me = await apiLogin(username, password);
       currentUserRole = me.role;
+      currentUserAssignedGroups = me.assignedGroups || [];
       applyRoleUI();
       document.getElementById("loginPassword").value = "";
       hideLoginOverlay();
@@ -2940,6 +2970,7 @@
       if(res.ok){
         const me = await res.json();
         currentUserRole = me.role;
+        currentUserAssignedGroups = me.assignedGroups || [];
         applyRoleUI();
         hideLoginOverlay();
         await bootAppData();

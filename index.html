@@ -248,6 +248,15 @@
     width:100%; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:15px; outline:none; background:#fbfcfe;
   }
   .form-group input:focus, .form-group select:focus{border-color:var(--navy-800);}
+  .pwd-field{position:relative;}
+  .pwd-field input{padding-right:42px;}
+  .pwd-toggle{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    width:34px; height:34px; border:none; background:transparent; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--ink-soft); cursor:pointer;
+  }
+  .pwd-toggle:hover{background:#eef0f4;}
+  body.dark-mode .pwd-toggle:hover{background:#1a2337;}
   .type-choice{display:flex; gap:8px;}
   .type-choice button{
     flex:1; border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:12px; font-weight:800; font-size:14px; color:var(--ink-soft);
@@ -1033,7 +1042,10 @@
       </div>
       <div class="form-group" style="margin-bottom:20px;">
         <label>密碼</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" required>
+        <div class="pwd-field">
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <button type="button" class="pwd-toggle" id="loginPasswordToggle" aria-label="顯示密碼" title="顯示密碼">👁</button>
+        </div>
       </div>
       <div class="sheet-actions">
         <button type="submit" class="btn-confirm" id="loginSubmitBtn" style="width:100%;">登入</button>
@@ -2921,6 +2933,16 @@
     return res.json();
   }
 
+  document.getElementById("loginPasswordToggle").addEventListener("click", ()=>{
+    const input = document.getElementById("loginPassword");
+    const btn = document.getElementById("loginPasswordToggle");
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    btn.textContent = show ? "🙈" : "👁";
+    btn.title = show ? "隱藏密碼" : "顯示密碼";
+    btn.setAttribute("aria-label", btn.title);
+  });
+
   document.getElementById("loginForm").addEventListener("submit", async e=>{
     e.preventDefault();
     const username = document.getElementById("loginUsername").value.trim();
@@ -2933,7 +2955,13 @@
       currentUserRole = me.role;
       currentUserAssignedGroups = me.assignedGroups || [];
       applyRoleUI();
-      document.getElementById("loginPassword").value = "";
+      const pwdInput = document.getElementById("loginPassword");
+      pwdInput.value = "";
+      pwdInput.type = "password";
+      const pwdToggleBtn = document.getElementById("loginPasswordToggle");
+      pwdToggleBtn.textContent = "👁";
+      pwdToggleBtn.title = "顯示密碼";
+      pwdToggleBtn.setAttribute("aria-label", "顯示密碼");
       hideLoginOverlay();
       await bootAppData();
     }catch(err){

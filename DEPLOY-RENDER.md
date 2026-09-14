@@ -27,10 +27,10 @@
 
 1. Render Dashboard →「New」→「Web Service」→ 選你的 GitHub repo（`bitan-energy-pro-live`）。
 2. 設定：
-   - **Root Directory**：`backend/BiTanEnergyApi`
-   - **Environment / Runtime**：Native（.NET），不用 Docker
-   - **Build Command**：`dotnet publish -c Release -o out`
-   - **Start Command**：`dotnet out/BiTanEnergyApi.dll`
+   - **Language**：**Docker**（Render 沒有原生 .NET 執行環境，.NET 專案一定要用 Docker 部署；repo 根目錄已經有一份 `Dockerfile` 處理好建置與啟動了）
+   - **Dockerfile Path**：`./Dockerfile`
+   - **Docker Build Context Directory**：`.`（repo 根目錄，不是 `backend/BiTanEnergyApi`——因為 Dockerfile 需要同時拿到後端程式碼和 `index.html`/`manifest.json`/`icons/`）
+   - 不需要另外填 Build/Start Command，Dockerfile 裡的 `ENTRYPOINT` 已經包辦
    - **Instance Type**：先用 Free 測試即可，正式使用建議升級付費方案（Free 方案閒置一段時間會休眠，第一個請求會慢）
 3. 環境變數（Environment → Add Environment Variable）：
 

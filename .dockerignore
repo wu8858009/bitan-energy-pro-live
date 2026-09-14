@@ -1,0 +1,8 @@
+.git/
+backend/**/bin/
+backend/**/obj/
+backend/**/App_Data/
+backend/**/appsettings.Production.json
+backend/**/appsettings.*.local.json
+publish/
+*.md

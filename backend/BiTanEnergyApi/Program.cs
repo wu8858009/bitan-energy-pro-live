@@ -3,6 +3,15 @@ using BiTanEnergyApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render (and most container PaaS hosts) inject the port to listen on via $PORT
+// rather than a fixed one — bind to it when present, otherwise keep the normal
+// launchSettings.json / ASPNETCORE_URLS behavior for local dev.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(renderPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
+
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
     o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;

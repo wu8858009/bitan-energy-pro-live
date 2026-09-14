@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="3.5">
+<meta name="app-build" content="4.0">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -255,6 +255,18 @@
   .btn-cancel{background:#eef0f4; color:#5c6478;}
   .btn-confirm{background:var(--navy-900); color:#fff;}
 
+  /* ===== 登入畫面 ===== */
+  .login-sheet{max-width:360px; border-radius:20px; margin:auto; animation:none;}
+  .login-title{text-align:center; margin-bottom:22px;}
+  .login-title .login-logo{font-size:34px; margin-bottom:8px;}
+  .login-title h2{margin:0; font-size:19px; font-weight:800;}
+  .login-error{
+    display:none; background:#fff1ef; color:var(--danger); font-size:12.5px; font-weight:700;
+    padding:10px 12px; border-radius:9px; margin-bottom:14px; line-height:1.4;
+  }
+  .login-error.show{display:block;}
+  body.dark-mode .login-error{background:#2a1815; color:#ff9d8a;}
+
   .toast{
     position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(20px);
     background:#171e2e; color:#fff; padding:12px 20px; border-radius:12px; font-size:14px; font-weight:700;
@@ -404,6 +416,38 @@
   .donut-row .dot{width:9px; height:9px; border-radius:50%; flex:0 0 auto;}
   .donut-row .pct{margin-left:auto; color:var(--ink-soft); font-weight:800;}
 
+  .chart-toggle-row{display:flex; gap:8px; margin-bottom:14px;}
+  .chart-toggle-chip{
+    flex:1; display:flex; align-items:center; justify-content:space-between; gap:8px;
+    border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:9px 12px;
+    font-size:12.5px; font-weight:700; color:var(--ink);
+  }
+  .legend-line{display:inline-block; width:14px; height:0; border-top:2px solid var(--ink); vertical-align:middle;}
+  .legend-line.yoy{border-top-style:dashed; border-top-color:var(--ink-soft); border-top-width:1.5px;}
+
+  .chart-cost-box{margin-bottom:16px;}
+  .cost-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:12.5px; font-weight:700; color:var(--ink);}
+  .cost-row:last-of-type{border-bottom:none;}
+  .cost-row .cost-dot{width:9px; height:9px; border-radius:50%; flex:0 0 auto;}
+  .cost-row .cost-label{flex:0 0 auto; width:34px;}
+  .cost-row .cost-usage{flex:1; min-width:0; color:var(--ink-soft); font-weight:600; font-size:11.5px;}
+  .cost-row .cost-amt{flex:0 0 auto; font-weight:800;}
+  .cost-total-row{display:flex; justify-content:space-between; align-items:center; padding:10px 2px 4px; font-size:13.5px; font-weight:800; color:var(--ink);}
+  .cost-total-row .cost-total-amt{color:var(--navy-900); font-size:16px;}
+  .budget-bar-wrap{margin-top:10px;}
+  .budget-bar-track{height:8px; border-radius:99px; background:#eef0f4; overflow:hidden;}
+  .budget-bar-fill{height:100%; border-radius:99px; background:#1f9d55; transition:width .2s ease;}
+  .budget-bar-fill.warn{background:#d99900;}
+  .budget-bar-fill.over{background:var(--danger);}
+  .budget-bar-label{font-size:11px; color:var(--ink-soft); font-weight:700; margin-top:5px; text-align:right;}
+
+  .rank-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .rank-tabs{display:flex; gap:6px;}
+  .rank-tab{border:1.5px solid var(--line); background:#fbfcfe; border-radius:8px; padding:5px 10px; font-size:11px; font-weight:800; color:var(--ink-soft);}
+  .rank-tab.active{border-color:var(--navy-900); background:var(--navy-900); color:#fff;}
+  .rank-bar-track{height:5px; border-radius:99px; background:#eef0f4; margin-top:5px; overflow:hidden;}
+  .rank-bar-fill{height:100%; border-radius:99px; background:var(--blue-tag);}
+
   /* ===== 深色模式 ===== */
   body.dark-mode{
     --bg:#0a1120; --card:#141c2e; --ink:#eef1f6; --ink-soft:#8b93a8; --line:#26304a;
@@ -457,6 +501,12 @@
   body.dark-mode .anomaly-item.severe .ai-text{color:#ff9d8a;}
   body.dark-mode .anomaly-ok{background:#1a2337;}
   body.dark-mode .curr-warning.lvl-error{background:#2a1815; color:#ff9d8a;}
+  body.dark-mode .chart-toggle-chip,
+  body.dark-mode .rank-tab{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
+  body.dark-mode .rank-tab.active{background:#fff; color:var(--navy-900); border-color:#fff;}
+  body.dark-mode .cost-row{border-bottom-color:#26304a;}
+  body.dark-mode .budget-bar-track,
+  body.dark-mode .rank-bar-track{background:#26304a;}
   body.dark-mode .curr-warning.lvl-caution{background:#2a2210; color:#f0c674;}
   body.dark-mode .confirm-message{color:var(--ink);}
 
@@ -554,7 +604,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v3.5</span>
+    <span class="pro-badge">PRO v4.0</span>
   </div>
 
   <div class="control-panel">
@@ -662,6 +712,17 @@
       <button type="button" class="chart-tab" data-chart-type="gas">🔥 瓦斯</button>
     </div>
 
+    <div class="chart-toggle-row">
+      <button type="button" class="chart-toggle-chip" id="chartTrendToggle">
+        <span>📈 趨勢預測</span>
+        <span class="toggle-switch" id="trendToggleSwitch"></span>
+      </button>
+      <button type="button" class="chart-toggle-chip" id="chartYoyToggle">
+        <span>📅 同期比較</span>
+        <span class="toggle-switch" id="yoyToggleSwitch"></span>
+      </button>
+    </div>
+
     <div class="chart-canvas-wrap">
       <canvas id="usageChartCanvas"></canvas>
       <div class="chart-legend" id="chartLegend"></div>
@@ -677,7 +738,16 @@
       <div class="donut-breakdown" id="donutBreakdown"></div>
     </div>
 
-    <div class="menu-section-title">本期用量排行</div>
+    <div class="menu-section-title">本期費用試算</div>
+    <div class="chart-cost-box" id="chartCostBox"></div>
+
+    <div class="rank-header">
+      <div class="menu-section-title" style="margin-bottom:0;">本期用量排行</div>
+      <div class="rank-tabs">
+        <button type="button" class="rank-tab active" data-rank-mode="site">站點排行</button>
+        <button type="button" class="rank-tab" data-rank-mode="group">群組比較</button>
+      </div>
+    </div>
     <div class="top-usage-list" id="topUsageList"></div>
 
     <div class="sheet-actions">
@@ -723,6 +793,26 @@
     </div>
 
     <div class="menu-section">
+      <div class="menu-section-title">費用與預算設定</div>
+      <div class="form-group">
+        <label>水單價（NT$ / 度）</label>
+        <input type="number" id="setPriceWater" placeholder="0" inputmode="decimal" min="0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>電單價（NT$ / 度）</label>
+        <input type="number" id="setPriceElec" placeholder="0" inputmode="decimal" min="0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>瓦斯單價（NT$ / 度）</label>
+        <input type="number" id="setPriceGas" placeholder="0" inputmode="decimal" min="0" step="0.1">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>每月預算（NT$，選填）</label>
+        <input type="number" id="setBudget" placeholder="0" inputmode="decimal" min="0" step="1">
+      </div>
+    </div>
+
+    <div class="menu-section">
       <div class="menu-section-title">顯示設定</div>
       <button type="button" class="menu-item" id="mDarkToggle">
         <span class="mi-ic">🌙</span>
@@ -745,10 +835,19 @@
       </button>
     </div>
 
+    <div class="menu-section">
+      <div class="menu-section-title">帳號</div>
+      <button type="button" class="menu-item danger" id="mLogout">
+        <span class="mi-ic">🚪</span>
+        <span class="mi-label">登出</span>
+        <span class="mi-chev">›</span>
+      </button>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v3.5 ・ 資料儲存於本機瀏覽器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.0 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -813,6 +912,30 @@
   </div>
 </div>
 
+<!-- 登入畫面（進入系統前的驗證關卡） -->
+<div class="overlay open" id="loginOverlay" style="z-index:300;">
+  <div class="sheet login-sheet">
+    <div class="login-title">
+      <div class="login-logo">🔐</div>
+      <h2>碧潭能源管理系統</h2>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>帳號</label>
+        <input type="text" id="loginUsername" autocomplete="username" required>
+      </div>
+      <div class="form-group" style="margin-bottom:20px;">
+        <label>密碼</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+      </div>
+      <div class="sheet-actions">
+        <button type="submit" class="btn-confirm" id="loginSubmitBtn" style="width:100%;">登入</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -829,89 +952,48 @@
   let currentMonthKey = null;
   let currentPhotoTargetId = null;
 
-  // ---- 本機資料儲存（單機版：不連後端，站點/讀數存 localStorage，照片存 IndexedDB） ----
-  const LS_SITES = "bitan_sites_v1";
-  const LS_READINGS = "bitan_readings_v1";
-
-  function persistSites(){
-    localStorage.setItem(LS_SITES, JSON.stringify(sites));
-  }
-  function persistReadings(){
-    // 只存 curr 與照片 id 參照，不存照片本身（照片存在 IndexedDB）
-    const slim = {};
-    for(const monthKey in readingsCache){
-      slim[monthKey] = {};
-      for(const siteId in readingsCache[monthKey]){
-        const r = readingsCache[monthKey][siteId];
-        slim[monthKey][siteId] = {curr: r.curr, photos: (r.photos||[]).map(p=>({id:p.id}))};
-      }
+  // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
+  const API_BASE = "/api";
+  let onAuthRequired = ()=>{};
+  async function apiFetch(path, options){
+    const res = await fetch(API_BASE + path, Object.assign({credentials:"include"}, options));
+    if(res.status === 401){
+      onAuthRequired();
+      throw new Error("尚未登入或登入已過期");
     }
-    localStorage.setItem(LS_READINGS, JSON.stringify(slim));
+    if(!res.ok){
+      let message = "發生錯誤（" + res.status + "）";
+      try{ const body = await res.json(); if(body && body.message) message = body.message; }catch(e){}
+      throw new Error(message);
+    }
+    return res;
   }
 
-  // ---- 照片儲存（IndexedDB，原生 API）----
-  let photoDbPromise = null;
-  function openPhotoDb(){
-    if(photoDbPromise) return photoDbPromise;
-    photoDbPromise = new Promise((resolve, reject)=>{
-      const req = indexedDB.open("bitan-photos", 1);
-      req.onupgradeneeded = ()=>{ req.result.createObjectStore("photos", {keyPath:"id"}); };
-      req.onsuccess = ()=>resolve(req.result);
-      req.onerror = ()=>reject(req.error);
-    });
-    return photoDbPromise;
+  // 顯示設定（單價、預算）僅為前端偏好，保留在本機瀏覽器
+  const LS_SETTINGS = "bitan_settings_v1";
+
+  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, budget:0};
+  function loadSettings(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(LS_SETTINGS) || "null");
+      if(raw && raw.unitPrice){
+        appSettings = {
+          unitPrice:{
+            water: Number(raw.unitPrice.water) || 0,
+            elec: Number(raw.unitPrice.elec) || 0,
+            gas: Number(raw.unitPrice.gas) || 0
+          },
+          budget: Number(raw.budget) || 0
+        };
+      }
+    }catch(e){}
   }
-  async function savePhotoBlob(id, blob, contentType){
-    const db = await openPhotoDb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction("photos", "readwrite");
-      tx.objectStore("photos").put({id, blob, contentType});
-      tx.oncomplete = ()=>resolve();
-      tx.onerror = ()=>reject(tx.error);
-    });
-  }
-  async function getPhotoBlob(id){
-    const db = await openPhotoDb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction("photos", "readonly");
-      const req = tx.objectStore("photos").get(id);
-      req.onsuccess = ()=>resolve(req.result || null);
-      req.onerror = ()=>reject(req.error);
-    });
-  }
-  async function deletePhotoBlob(id){
-    const db = await openPhotoDb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction("photos", "readwrite");
-      tx.objectStore("photos").delete(id);
-      tx.oncomplete = ()=>resolve();
-      tx.onerror = ()=>reject(tx.error);
-    });
-  }
-  async function clearAllPhotoBlobs(){
-    const db = await openPhotoDb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction("photos", "readwrite");
-      tx.objectStore("photos").clear();
-      tx.oncomplete = ()=>resolve();
-      tx.onerror = ()=>reject(tx.error);
-    });
+  function persistSettings(){
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(appSettings));
   }
 
-  // photoId -> objectURL 快取，避免重複 render 時重複產生/洩漏 object URL
-  const photoUrlCache = new Map();
-  async function resolvePhotoUrl(id){
-    if(photoUrlCache.has(id)) return photoUrlCache.get(id);
-    const rec = await getPhotoBlob(id);
-    if(!rec) return null;
-    const url = URL.createObjectURL(rec.blob);
-    photoUrlCache.set(id, url);
-    return url;
-  }
-  function forgetPhotoUrl(id){
-    const url = photoUrlCache.get(id);
-    if(url) URL.revokeObjectURL(url);
-    photoUrlCache.delete(id);
+  function photoUrl(id){
+    return API_BASE + "/photos/" + id;
   }
 
   // ---- 照片放大檢視 ----
@@ -960,49 +1042,60 @@
   // readingsCache：{ monthKey: { siteId: {curr, photos:[{id,url}]} } }，開機時從 localStorage/IndexedDB 整批載入
   let readingsCache = {};
 
-  // 站點 id 一律以字串比對（新站點用 crypto.randomUUID() 產生，配合 dataset.* 都是字串）
+  // 站點 id 一律以字串比對（伺服器回傳的是 MongoDB ObjectId 字串）
   async function loadSites(){
-    sites = JSON.parse(localStorage.getItem(LS_SITES) || "[]");
+    sites = await apiFetch("/sites").then(r=>r.json());
   }
   async function apiSaveSite(site){
-    const idx = sites.findIndex(s=>s.id===site.id);
-    if(idx !== -1) sites[idx] = {...sites[idx], ...site};
-    persistSites();
+    const body = JSON.stringify({group:site.group, site:site.site, location:site.location, meterNo:site.meterNo, type:site.type, basePrev:site.basePrev});
+    await apiFetch("/sites/"+site.id, {method:"PUT", headers:{"Content-Type":"application/json"}, body});
   }
 
   async function loadAllReadings(){
-    const slim = JSON.parse(localStorage.getItem(LS_READINGS) || "{}");
+    const all = await apiFetch("/readings/all").then(r=>r.json());
     readingsCache = {};
-    for(const monthKey in slim){
-      readingsCache[monthKey] = {};
-      for(const siteId in slim[monthKey]){
-        const r = slim[monthKey][siteId];
-        const photos = await Promise.all((r.photos||[]).map(async p=>({id:p.id, url: await resolvePhotoUrl(p.id)})));
-        readingsCache[monthKey][siteId] = {curr: r.curr===null||r.curr===undefined ? "" : String(r.curr), photos: photos.filter(p=>p.url)};
-      }
-    }
+    all.forEach(r=>{
+      if(!readingsCache[r.monthKey]) readingsCache[r.monthKey] = {};
+      readingsCache[r.monthKey][r.siteId] = {
+        curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr),
+        photos: (r.photos||[]).map(p=>({id:p.id, url:photoUrl(p.id)}))
+      };
+    });
   }
 
   function loadReadings(monthKey){
     return readingsCache[monthKey] || (readingsCache[monthKey] = {});
   }
 
-  // 本期讀數輸入採防抖動寫入 localStorage，避免每個按鍵都寫一次
+  // 本期讀數輸入採防抖動送出，避免每個按鍵都打一次 API
   const currSaveTimers = {};
   function scheduleSaveCurrValue(siteId, monthKey, value){
     const key = siteId + "|" + monthKey;
     clearTimeout(currSaveTimers[key]);
     currSaveTimers[key] = setTimeout(()=>{
       delete currSaveTimers[key];
-      persistReadings();
+      saveCurrValue(siteId, monthKey, value);
     }, 500);
   }
+  async function saveCurrValue(siteId, monthKey, value){
+    const curr = (value===""||value===undefined||value===null) ? null : parseFloat(value);
+    try{
+      await apiFetch("/readings/"+siteId+"?month="+encodeURIComponent(monthKey), {
+        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({curr})
+      });
+    }catch(e){
+      showToast(e.message || "讀數儲存失敗");
+    }
+  }
   function flushPendingCurrSaves(){
-    Object.keys(currSaveTimers).forEach(key=>{
+    const pending = Object.keys(currSaveTimers).map(key=>{
       clearTimeout(currSaveTimers[key]);
       delete currSaveTimers[key];
+      const [siteId, monthKey] = key.split("|");
+      const value = (readingsCache[monthKey] && readingsCache[monthKey][siteId]) ? readingsCache[monthKey][siteId].curr : "";
+      return saveCurrValue(siteId, monthKey, value);
     });
-    persistReadings();
+    return Promise.all(pending);
   }
 
   // ---- Month select ----
@@ -1310,19 +1403,16 @@
 
   function deleteSite(siteId){
     showConfirm("確定要刪除這個站點嗎？此動作無法復原。", async ()=>{
-      sites = sites.filter(s=>s.id!==siteId);
-      persistSites();
-      for(const monthKey in readingsCache){
-        const r = readingsCache[monthKey][siteId];
-        if(r){
-          for(const photo of (r.photos||[])){
-            forgetPhotoUrl(photo.id);
-            await deletePhotoBlob(photo.id);
-          }
-          delete readingsCache[monthKey][siteId];
-        }
+      try{
+        await apiFetch("/sites/"+siteId, {method:"DELETE"});
+      }catch(e){
+        showToast(e.message || "刪除失敗");
+        return;
       }
-      persistReadings();
+      sites = sites.filter(s=>s.id!==siteId);
+      for(const monthKey in readingsCache){
+        delete readingsCache[monthKey][siteId];
+      }
       render();
       showToast("站點已刪除");
     }, {title:"刪除站點", okLabel:"刪除", danger:true});
@@ -1420,13 +1510,12 @@
     try{
       if(editingSiteId){
         const s = sites.find(x=>x.id===editingSiteId);
+        await apiFetch("/sites/"+editingSiteId, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
         Object.assign(s, payload);
-        persistSites();
         showToast("站點資料已更新");
       }else{
-        const created = {id: crypto.randomUUID(), ...payload};
+        const created = await apiFetch("/sites", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}).then(r=>r.json());
         sites.push(created);
-        persistSites();
         showToast("站點已新增");
       }
       overlay.classList.remove("open");
@@ -1446,8 +1535,27 @@
   document.getElementById("menuBtn").addEventListener("click", ()=>{
     populateMenuStats();
     syncDarkToggleUI();
+    syncSettingsUI();
     menuOverlay.classList.add("open");
   });
+
+  // ---- 費用與預算設定 ----
+  function syncSettingsUI(){
+    document.getElementById("setPriceWater").value = appSettings.unitPrice.water || "";
+    document.getElementById("setPriceElec").value = appSettings.unitPrice.elec || "";
+    document.getElementById("setPriceGas").value = appSettings.unitPrice.gas || "";
+    document.getElementById("setBudget").value = appSettings.budget || "";
+  }
+  function bindSettingInput(inputId, applyFn){
+    document.getElementById(inputId).addEventListener("input", (e)=>{
+      applyFn(Math.max(0, parseFloat(e.target.value)) || 0);
+      persistSettings();
+    });
+  }
+  bindSettingInput("setPriceWater", v=>appSettings.unitPrice.water = v);
+  bindSettingInput("setPriceElec", v=>appSettings.unitPrice.elec = v);
+  bindSettingInput("setPriceGas", v=>appSettings.unitPrice.gas = v);
+  bindSettingInput("setBudget", v=>appSettings.budget = v);
   document.getElementById("menuCloseBtn").addEventListener("click", ()=>menuOverlay.classList.remove("open"));
   menuOverlay.addEventListener("click", e=>{ if(e.target===menuOverlay) menuOverlay.classList.remove("open"); });
 
@@ -1537,19 +1645,13 @@
     setTimeout(()=>printWin.print(), 300);
   });
 
-  // ---- 匯出完整備份 JSON（站點與各月讀數；照片只存在這台裝置，不含在備份內）----
+  // ---- 匯出完整備份 JSON（站點與各月讀數；照片不含在備份內，仍保留於伺服器）----
   document.getElementById("mExportJson").addEventListener("click", exportData);
 
   async function exportData(){
     try{
-      const readings = [];
-      for(const monthKey in readingsCache){
-        for(const siteId in readingsCache[monthKey]){
-          const r = readingsCache[monthKey][siteId];
-          readings.push({siteId, monthKey, curr: (r.curr===""||r.curr===undefined||r.curr===null) ? null : parseFloat(r.curr)});
-        }
-      }
-      const payload = {sites, readings, exportedAt: new Date().toISOString()};
+      const payload = await apiFetch("/backup/export").then(r=>r.json());
+      payload.exportedAt = new Date().toISOString();
       const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1575,20 +1677,12 @@
         const payload = JSON.parse(ev.target.result);
         if(!payload.sites || !payload.readings){ throw new Error("格式不正確"); }
         showConfirm(
-          `確定要還原備份嗎？這會覆蓋目前所有站點與抄錄紀錄（本機既有照片不受影響）。\n備份時間：${payload.exportedAt||"未知"}`,
+          `確定要還原備份嗎？這會覆蓋伺服器上目前所有站點與抄錄紀錄（照片不含在備份內，不受影響）。\n備份時間：${payload.exportedAt||"未知"}`,
           async ()=>{
             try{
-              const newCache = {};
-              (payload.readings||[]).forEach(r=>{
-                const monthKey = r.monthKey, siteId = String(r.siteId);
-                if(!newCache[monthKey]) newCache[monthKey] = {};
-                const existing = (readingsCache[monthKey] && readingsCache[monthKey][siteId]) ? readingsCache[monthKey][siteId].photos : [];
-                newCache[monthKey][siteId] = {curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr), photos: existing || []};
-              });
-              sites = (payload.sites||[]).map(s=>({...s, id:String(s.id)}));
-              readingsCache = newCache;
-              persistSites();
-              persistReadings();
+              await apiFetch("/backup/import", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sites:payload.sites, readings:payload.readings})});
+              await loadSites();
+              await loadAllReadings();
               menuOverlay.classList.remove("open");
               render();
               showToast("備份已還原");
@@ -1628,15 +1722,13 @@
     showConfirm(
       `確定要清除「${currentMonthKey}」本期所有抄錄讀數與照片嗎？站點資料不會被刪除。`,
       async ()=>{
-        const monthData = readingsCache[currentMonthKey] || {};
-        for(const siteId in monthData){
-          for(const photo of (monthData[siteId].photos||[])){
-            forgetPhotoUrl(photo.id);
-            await deletePhotoBlob(photo.id);
-          }
+        try{
+          await apiFetch("/readings?month="+encodeURIComponent(currentMonthKey), {method:"DELETE"});
+        }catch(e){
+          showToast(e.message || "清除失敗");
+          return;
         }
         delete readingsCache[currentMonthKey];
-        persistReadings();
         menuOverlay.classList.remove("open");
         render();
         showToast("本期抄錄資料已清除");
@@ -1653,13 +1745,14 @@
         showConfirm(
           "請再次確認：真的要清除全部資料嗎？",
           async ()=>{
+            try{
+              await apiFetch("/backup/clear-all", {method:"POST"});
+            }catch(e){
+              showToast(e.message || "清除失敗");
+              return;
+            }
             sites = [];
             readingsCache = {};
-            persistSites();
-            persistReadings();
-            photoUrlCache.forEach(url=>URL.revokeObjectURL(url));
-            photoUrlCache.clear();
-            await clearAllPhotoBlobs();
             menuOverlay.classList.remove("open");
             render();
             showToast("所有資料已清除");
@@ -1677,6 +1770,9 @@
   let chartActiveType = "all";
   let chartPeriodMonths = 6;
   let chartGroupFilter = "all";
+  let chartShowTrend = false;
+  let chartShowYoY = false;
+  let chartRankMode = "site";
   const CHART_COLORS = {
     water: "#2f7bf6",
     elec: "#f5b400",
@@ -1688,11 +1784,35 @@
     chartActiveType = "all";
     chartPeriodMonths = 6;
     chartGroupFilter = "all";
+    chartShowTrend = false;
+    chartShowYoY = false;
+    chartRankMode = "site";
     syncChartTabsUI();
     syncChartPeriodUI();
     populateChartGroupFilter();
+    document.getElementById("trendToggleSwitch").classList.remove("on");
+    document.getElementById("yoyToggleSwitch").classList.remove("on");
+    document.querySelectorAll(".rank-tab").forEach(b=>b.classList.toggle("active", b.dataset.rankMode==="site"));
     chartOverlay.classList.add("open");
     renderChartPanel();
+  });
+
+  document.getElementById("chartTrendToggle").addEventListener("click", ()=>{
+    chartShowTrend = !chartShowTrend;
+    document.getElementById("trendToggleSwitch").classList.toggle("on", chartShowTrend);
+    renderChartPanel();
+  });
+  document.getElementById("chartYoyToggle").addEventListener("click", ()=>{
+    chartShowYoY = !chartShowYoY;
+    document.getElementById("yoyToggleSwitch").classList.toggle("on", chartShowYoY);
+    renderChartPanel();
+  });
+  document.querySelectorAll(".rank-tab").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      chartRankMode = btn.dataset.rankMode;
+      document.querySelectorAll(".rank-tab").forEach(b=>b.classList.toggle("active", b===btn));
+      renderTopUsageList();
+    });
   });
   document.getElementById("chartCloseBtn").addEventListener("click", ()=>chartOverlay.classList.remove("open"));
   chartOverlay.addEventListener("click", e=>{ if(e.target===chartOverlay) chartOverlay.classList.remove("open"); });
@@ -1739,6 +1859,43 @@
     return chartGroupFilter === "all" ? sites : sites.filter(s=>(s.group||"未分類")===chartGroupFilter);
   }
 
+  // 取得去年（或N年前）同月份的 key，例如 2026-08 往前1年 → 2025-08
+  function getYearsAgoMonthKey(monthKey, yearsBack){
+    const [y,m] = monthKey.split("-").map(Number);
+    return (y-yearsBack) + "-" + String(m).padStart(2,"0");
+  }
+
+  // 目前分頁（全部/水/電/瓦斯）所涵蓋型別的加總用量
+  function sumActiveTypes(monthTotal){
+    const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
+    return types.reduce((s,t)=>s+Math.max(monthTotal[t],0), 0);
+  }
+
+  // 最小平方法線性迴歸，回傳斜率與截距
+  function linearRegression(values){
+    const n = values.length;
+    if(n===0) return {slope:0, intercept:0};
+    let sumX=0, sumY=0, sumXY=0, sumXX=0;
+    values.forEach((v,i)=>{ sumX+=i; sumY+=v; sumXY+=i*v; sumXX+=i*i; });
+    const denom = n*sumXX - sumX*sumX;
+    if(denom === 0) return {slope:0, intercept:sumY/n};
+    const slope = (n*sumXY - sumX*sumY) / denom;
+    const intercept = (sumY - slope*sumX) / n;
+    return {slope, intercept};
+  }
+
+  // 依各型別歷史用量，用線性迴歸推算未來2期預測值（不為負）
+  function computeForecastByType(monthTotals, types){
+    const result = {};
+    types.forEach(t=>{
+      const values = monthTotals.map(mt=>Math.max(0, mt[t]));
+      const {slope, intercept} = linearRegression(values);
+      const n = values.length;
+      result[t] = [0,1].map(k=>Math.max(0, slope*(n+k)+intercept));
+    });
+    return result;
+  }
+
   // 取得往前 N 個月（含當月）的月份 key 陣列，由舊到新排序
   function getLastNMonthKeys(endMonthKey, n){
     const keys = [];
@@ -1779,27 +1936,33 @@
   function renderChartPanel(){
     const monthKeys = getLastNMonthKeys(currentMonthKey, chartPeriodMonths);
     const monthTotals = monthKeys.map(k=>computeMonthTotals(k));
+    const yoyMonthTotals = chartShowYoY ? monthKeys.map(k=>computeMonthTotals(getYearsAgoMonthKey(k,1))) : null;
 
-    drawUsageChart(monthKeys, monthTotals);
+    drawUsageChart(monthKeys, monthTotals, yoyMonthTotals);
     renderChartLegend();
     renderAnomalies();
-    renderChartStats(monthKeys, monthTotals);
+    renderChartStats(monthKeys, monthTotals, yoyMonthTotals);
     renderDonut(monthTotals[monthTotals.length-1]);
+    renderCostSection(monthTotals[monthTotals.length-1]);
     renderTopUsageList();
   }
 
   function renderChartLegend(){
     const legend = document.getElementById("chartLegend");
+    let html;
     if(chartActiveType === "all"){
-      legend.innerHTML = ["water","elec","gas"].map(t=>
+      html = ["water","elec","gas"].map(t=>
         `<span><span class="legend-dot" style="background:${CHART_COLORS[t]}"></span>${CHART_LABELS[t]}</span>`
       ).join("");
     }else{
-      legend.innerHTML = `<span><span class="legend-dot" style="background:${CHART_COLORS[chartActiveType]}"></span>${CHART_LABELS[chartActiveType]}用量（度）</span>`;
+      html = `<span><span class="legend-dot" style="background:${CHART_COLORS[chartActiveType]}"></span>${CHART_LABELS[chartActiveType]}用量（度）</span>`;
     }
+    if(chartShowTrend) html += `<span><span class="legend-line"></span>趨勢／預測</span>`;
+    if(chartShowYoY) html += `<span><span class="legend-line yoy"></span>去年同期</span>`;
+    legend.innerHTML = html;
   }
 
-  function drawUsageChart(monthKeys, monthTotals){
+  function drawUsageChart(monthKeys, monthTotals, yoyMonthTotals){
     const canvas = document.getElementById("usageChartCanvas");
     const wrap = canvas.parentElement;
     const dpr = window.devicePixelRatio || 1;
@@ -1816,17 +1979,9 @@
     const isDark = document.body.classList.contains("dark-mode");
     const axisColor = isDark ? "#5c6684" : "#9aa3b2";
     const labelColor = isDark ? "#aab2c8" : "#6b7280";
+    const trendColor = isDark ? "#eef1f6" : "#131a2b";
 
     const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
-    const maxVal = Math.max(1, ...monthTotals.map(mt=>Math.max(...types.map(t=>mt[t]))));
-
-    const padL = 8, padR = 8, padT = 10, padB = 24;
-    const chartW = cssW - padL - padR;
-    const chartH = cssH - padT - padB;
-    const groupCount = monthKeys.length;
-    const groupW = chartW / groupCount;
-    const barGap = types.length > 1 ? 2 : 0;
-    const barW = Math.min(groupCount>8?14:26, (groupW - 10 - barGap*(types.length-1)) / types.length);
 
     const hasData = monthTotals.some(mt=>types.some(t=>mt[t] !== 0));
     if(!hasData){
@@ -1837,6 +1992,26 @@
       return;
     }
 
+    const showForecast = chartShowTrend && monthTotals.length>=3;
+    const forecasts = showForecast ? computeForecastByType(monthTotals, types) : null;
+    const forecastCount = showForecast ? 2 : 0;
+
+    let maxVal = Math.max(1, ...monthTotals.map(mt=>Math.max(...types.map(t=>mt[t]))));
+    if(chartShowYoY && yoyMonthTotals){
+      maxVal = Math.max(maxVal, ...yoyMonthTotals.map(mt=>Math.max(...types.map(t=>Math.max(0,mt[t])))));
+    }
+    if(forecasts){
+      types.forEach(t=>forecasts[t].forEach(v=>{ maxVal = Math.max(maxVal, v); }));
+    }
+
+    const padL = 8, padR = 8, padT = 10, padB = 24;
+    const chartW = cssW - padL - padR;
+    const chartH = cssH - padT - padB;
+    const groupCount = monthKeys.length + forecastCount;
+    const groupW = chartW / groupCount;
+    const barGap = types.length > 1 ? 2 : 0;
+    const barW = Math.min(groupCount>8?14:26, (groupW - 10 - barGap*(types.length-1)) / types.length);
+
     ctx.strokeStyle = axisColor;
     ctx.globalAlpha = 0.4;
     ctx.beginPath();
@@ -1844,6 +2019,9 @@
     ctx.lineTo(padL+chartW, padT+chartH);
     ctx.stroke();
     ctx.globalAlpha = 1;
+
+    const valueToY = v => padT + chartH - (maxVal>0 ? (Math.max(0,v)/maxVal)*(chartH-6) : 0);
+    const groupCenterX = i => padL + i*groupW + groupW/2;
 
     monthKeys.forEach((mk, i)=>{
       const groupX = padL + i*groupW;
@@ -1864,14 +2042,84 @@
 
       // month label（期數多時每隔幾根才標示，避免擠成一團）
       const skip = groupCount>8 ? (groupCount>16?3:2) : 1;
-      if(i % skip === 0 || i===groupCount-1){
+      if(i % skip === 0 || i===monthKeys.length-1){
         const [, mm] = mk.split("-");
-        ctx.fillStyle = i===groupCount-1 ? (isDark?"#fff":"#131a2b") : labelColor;
-        ctx.font = (i===groupCount-1 ? "800 " : "600 ") + "10.5px -apple-system, sans-serif";
+        ctx.fillStyle = i===monthKeys.length-1 ? (isDark?"#fff":"#131a2b") : labelColor;
+        ctx.font = (i===monthKeys.length-1 ? "800 " : "600 ") + "10.5px -apple-system, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(mm+"月", groupX + groupW/2, cssH - 6);
       }
     });
+
+    // 預測期：虛線外框柱，與實際柱區隔
+    if(showForecast){
+      for(let f=0; f<forecastCount; f++){
+        const i = monthKeys.length + f;
+        const groupX = padL + i*groupW;
+        const totalBarsW = barW*types.length + barGap*(types.length-1);
+        let startX = groupX + (groupW - totalBarsW)/2;
+        types.forEach(t=>{
+          const val = forecasts[t][f];
+          const h = maxVal > 0 ? (val/maxVal) * (chartH-6) : 0;
+          const barY = padT + chartH - h;
+          ctx.save();
+          ctx.setLineDash([3,2]);
+          ctx.strokeStyle = CHART_COLORS[t];
+          ctx.lineWidth = 1.5;
+          roundRectPath(ctx, startX+0.75, barY+0.75, barW-1.5, Math.max(h,2)-1.5, 3);
+          ctx.stroke();
+          ctx.restore();
+          startX += barW + barGap;
+        });
+        ctx.fillStyle = labelColor;
+        ctx.font = "600 10px -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("預測", groupX + groupW/2, cssH - 6);
+      }
+    }
+
+    // 趨勢線：對每個顯示中的型別做線性迴歸，並延伸至預測期
+    if(chartShowTrend && monthTotals.length>=2){
+      types.forEach(t=>{
+        const values = monthTotals.map(mt=>Math.max(0, mt[t]));
+        const {slope, intercept} = linearRegression(values);
+        const histPts = values.map((_,i)=>({x:groupCenterX(i), y:valueToY(slope*i+intercept)}));
+        drawPolyline(ctx, histPts, trendColor, {dash:[], width:1.75, alpha:0.55});
+        if(showForecast){
+          const fPts = [histPts[histPts.length-1]].concat(
+            forecasts[t].map((v,k)=>({x:groupCenterX(monthKeys.length+k), y:valueToY(v)}))
+          );
+          drawPolyline(ctx, fPts, trendColor, {dash:[4,3], width:1.75, alpha:0.55});
+        }
+      });
+    }
+
+    // 同期比較：去年同期用量，以每型別一條虛線疊加
+    if(chartShowYoY && yoyMonthTotals){
+      types.forEach(t=>{
+        const pts = yoyMonthTotals.map((mt,i)=>({x:groupCenterX(i), y:valueToY(mt[t])}));
+        drawPolyline(ctx, pts, labelColor, {dash:[2,3], width:1.75, alpha:0.9});
+        pts.forEach(p=>{
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2);
+          ctx.fillStyle = labelColor;
+          ctx.fill();
+        });
+      });
+    }
+  }
+
+  function drawPolyline(ctx, pts, color, opts){
+    if(pts.length<2) return;
+    ctx.save();
+    ctx.setLineDash(opts.dash || []);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = opts.width || 2;
+    ctx.globalAlpha = opts.alpha===undefined ? 1 : opts.alpha;
+    ctx.beginPath();
+    pts.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+    ctx.restore();
   }
 
   function roundRectPath(ctx, x, y, w, h, r){
@@ -1884,12 +2132,11 @@
     ctx.closePath();
   }
 
-  function renderChartStats(monthKeys, monthTotals){
+  function renderChartStats(monthKeys, monthTotals, yoyMonthTotals){
     const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
-    const sumFor = (mt)=> types.reduce((s,t)=>s+Math.max(mt[t],0), 0);
-    const thisMonth = sumFor(monthTotals[monthTotals.length-1]);
-    const lastMonth = monthTotals.length>1 ? sumFor(monthTotals[monthTotals.length-2]) : 0;
-    const avgAll = monthTotals.reduce((s,mt)=>s+sumFor(mt),0) / monthTotals.length;
+    const thisMonth = sumActiveTypes(monthTotals[monthTotals.length-1]);
+    const lastMonth = monthTotals.length>1 ? sumActiveTypes(monthTotals[monthTotals.length-2]) : 0;
+    const avgAll = monthTotals.reduce((s,mt)=>s+sumActiveTypes(mt),0) / monthTotals.length;
 
     let deltaHtml = "";
     if(lastMonth > 0){
@@ -1901,8 +2148,7 @@
       deltaHtml = `<div class="delta flat">－</div>`;
     }
 
-    const row = document.getElementById("chartStatsRow");
-    row.innerHTML = `
+    let cardsHtml = `
       <div class="chart-stat-card">
         <div class="n">${formatNum(thisMonth)}</div>
         <div class="l">本期用量</div>
@@ -1917,6 +2163,35 @@
         <div class="l">近${chartPeriodMonths}期均量</div>
       </div>
     `;
+
+    if(chartShowYoY && yoyMonthTotals){
+      const lastYear = sumActiveTypes(yoyMonthTotals[yoyMonthTotals.length-1]);
+      if(lastYear > 0){
+        const yoyPct = ((thisMonth-lastYear)/lastYear)*100;
+        const dir = yoyPct>0.5 ? "up" : yoyPct<-0.5 ? "down" : "flat";
+        const arrow = yoyPct>0.5 ? "▲" : yoyPct<-0.5 ? "▼" : "－";
+        cardsHtml += `
+          <div class="chart-stat-card">
+            <div class="n">${formatNum(lastYear)}</div>
+            <div class="l">去年同期</div>
+            <div class="delta ${dir}">${arrow} ${Math.abs(yoyPct).toFixed(0)}%</div>
+          </div>`;
+      }else{
+        cardsHtml += `<div class="chart-stat-card"><div class="n">－</div><div class="l">去年同期無資料</div></div>`;
+      }
+    }
+
+    if(chartShowTrend){
+      if(monthTotals.length>=3){
+        const forecasts = computeForecastByType(monthTotals, types);
+        const nextTotal = types.reduce((s,t)=>s+forecasts[t][0], 0);
+        cardsHtml += `<div class="chart-stat-card"><div class="n">${formatNum(nextTotal)}</div><div class="l">下期預測用量</div></div>`;
+      }else{
+        cardsHtml += `<div class="chart-stat-card"><div class="n">－</div><div class="l">資料不足<br>(需≥3期)</div></div>`;
+      }
+    }
+
+    document.getElementById("chartStatsRow").innerHTML = cardsHtml;
   }
 
   // ---- 佔比圓餅圖（水/電/瓦斯）：僅在「全部」分頁顯示 ----
@@ -1975,6 +2250,52 @@
     }).join("");
   }
 
+  // ---- 本期費用試算與預算警示（需先於選單設定單價） ----
+  function renderCostSection(latestMonthTotals){
+    const box = document.getElementById("chartCostBox");
+    const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
+    const priced = types.filter(t=>appSettings.unitPrice[t]>0);
+    if(priced.length===0){
+      box.innerHTML = `<div class="chart-empty">請至選單設定單價以顯示費用試算（選單 → 費用與預算設定）</div>`;
+      return;
+    }
+
+    let totalCost = 0;
+    const rowsHtml = types.map(t=>{
+      const usage = Math.max(0, latestMonthTotals[t]);
+      const price = appSettings.unitPrice[t] || 0;
+      const cost = usage * price;
+      totalCost += cost;
+      return `<div class="cost-row">
+        <span class="cost-dot" style="background:${CHART_COLORS[t]}"></span>
+        <span class="cost-label">${CHART_LABELS[t]}</span>
+        <span class="cost-usage">${formatNum(usage)}${TYPE_META[t].unit} × $${formatNum(price)}</span>
+        <span class="cost-amt">$${formatNum(cost)}</span>
+      </div>`;
+    }).join("");
+
+    let html = rowsHtml + `
+      <div class="cost-total-row">
+        <span>本期預估總費用</span>
+        <span class="cost-total-amt">$${formatNum(totalCost)}</span>
+      </div>`;
+
+    if(appSettings.budget > 0){
+      const pct = (totalCost/appSettings.budget)*100;
+      const state = pct<80 ? "ok" : pct<=100 ? "warn" : "over";
+      html += `
+        <div class="budget-bar-wrap">
+          <div class="budget-bar-track"><div class="budget-bar-fill ${state}" style="width:${Math.min(100,pct)}%"></div></div>
+          <div class="budget-bar-label">預算 $${formatNum(appSettings.budget)} ・ 已使用 ${pct.toFixed(0)}%</div>
+        </div>`;
+      if(state === "over"){
+        html += `<div class="anomaly-item severe"><span class="ai-ic">🚨</span><span class="ai-text">本期預估費用已超出預算 <b>$${formatNum(totalCost-appSettings.budget)}</b>，請留意用量控管</span></div>`;
+      }
+    }
+
+    box.innerHTML = html;
+  }
+
   // ---- 異常用量警示：本期用量較上期暴增，或讀數疑似輸入錯誤 ----
   function renderAnomalies(){
     const box = document.getElementById("chartAnomalyBox");
@@ -2009,28 +2330,58 @@
 
   function renderTopUsageList(){
     const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
+    const list = document.getElementById("topUsageList");
+
+    // 群組比較：篩選未鎖定單一群組時，改為比較「群組」的加總用量
+    if(chartRankMode === "group" && chartGroupFilter === "all"){
+      const groupTotals = {};
+      filteredSites().forEach(site=>{
+        if(!types.includes(site.type)) return;
+        const usage = computeSiteUsage(site, currentMonthKey);
+        if(usage === null) return;
+        const g = site.group || "未分類";
+        groupTotals[g] = (groupTotals[g]||0) + usage;
+      });
+      const rows = Object.keys(groupTotals).map(g=>({label:g, usage:groupTotals[g]}));
+      rows.sort((a,b)=>b.usage-a.usage);
+      renderRankRows(list, rows, "group");
+      return;
+    }
+
+    // 站點排行（前5），或已鎖定單一群組時的「群組比較」（改列出該群組內所有站點）
     let rows = [];
     filteredSites().forEach(site=>{
       if(!types.includes(site.type)) return;
       const usage = computeSiteUsage(site, currentMonthKey);
       if(usage === null) return;
-      rows.push({site, usage});
+      rows.push({
+        label: site.site,
+        sub: (site.group||"") + " ・ " + (site.location||""),
+        icon: TYPE_META[site.type].icon,
+        usage
+      });
     });
     rows.sort((a,b)=>b.usage-a.usage);
-    rows = rows.slice(0,5);
+    if(chartRankMode === "site") rows = rows.slice(0,5);
+    renderRankRows(list, rows, "site");
+  }
 
-    const list = document.getElementById("topUsageList");
+  function renderRankRows(list, rows, mode){
     if(rows.length===0){
       list.innerHTML = `<div class="chart-empty">本期尚無已抄錄的用量資料</div>`;
       return;
     }
+    const maxUsage = Math.max(...rows.map(r=>Math.max(0,r.usage)), 1);
     list.innerHTML = rows.map((row,i)=>{
-      const meta = TYPE_META[row.site.type];
+      const pct = Math.max(4, Math.round((Math.max(0,row.usage)/maxUsage)*100));
+      const name = mode === "group" ? escapeHtml(row.label) : `${row.icon} ${escapeHtml(row.label)}`;
+      const sub = mode === "group" ? "" : `<div class="sub">${escapeHtml(row.sub)}</div>`;
       return `<div class="top-usage-item">
         <div class="rank">${i+1}</div>
         <div class="info">
-          <div class="name">${meta.icon} ${escapeHtml(row.site.site)}</div>
-          <div class="sub">${escapeHtml(row.site.group||"")} ・ ${escapeHtml(row.site.location||"")}</div>
+          <div class="name">${name}</div>
+          ${sub}
+          <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct}%"></div></div>
         </div>
         <div class="amt">${formatNum(row.usage)}</div>
       </div>`;
@@ -2047,6 +2398,29 @@
     const trendRows = monthKeys.map((mk,i)=>
       `<tr><td>${mk}</td><td style="text-align:right">${formatNum(sumFor(monthTotals[i]))}</td></tr>`
     ).join("");
+
+    const latestTotals = monthTotals[monthTotals.length-1];
+    const pricedTypes = types.filter(t=>appSettings.unitPrice[t]>0);
+    let costSectionHtml = "";
+    if(pricedTypes.length>0){
+      let totalCost = 0;
+      const costRows = types.map(t=>{
+        const usage = Math.max(0, latestTotals[t]);
+        const price = appSettings.unitPrice[t] || 0;
+        const cost = usage*price;
+        totalCost += cost;
+        return `<tr><td>${CHART_LABELS[t]}</td><td style="text-align:right">${formatNum(usage)}</td><td style="text-align:right">$${formatNum(price)}</td><td style="text-align:right">$${formatNum(cost)}</td></tr>`;
+      }).join("");
+      const budgetLine = appSettings.budget>0
+        ? `<div class="sub">本月預算：$${formatNum(appSettings.budget)} ｜ 預算使用率：${((totalCost/appSettings.budget)*100).toFixed(0)}%${totalCost>appSettings.budget ? "（已超支）" : ""}</div>`
+        : "";
+      costSectionHtml = `
+        <h2>本期費用試算</h2>
+        <table><thead><tr><th>類型</th><th>用量（度）</th><th>單價</th><th>費用</th></tr></thead><tbody>${costRows}</tbody></table>
+        <div class="sub"><b>本期預估總費用：$${formatNum(totalCost)}</b></div>
+        ${budgetLine}
+      `;
+    }
 
     let rankRows = [];
     filteredSites().forEach(site=>{
@@ -2086,6 +2460,7 @@
 
       <h2>本期用量排行（依用量高至低）</h2>
       <table><thead><tr><th>#</th><th>群組</th><th>站點</th><th>類型</th><th>用量（度）</th></tr></thead><tbody>${rankHtml || '<tr><td colspan="5" style="text-align:center;color:#9aa3b2">本期尚無已抄錄資料</td></tr>'}</tbody></table>
+      ${costSectionHtml}
       </body></html>`);
     printWin.document.close();
     printWin.focus();
@@ -2107,8 +2482,8 @@
   document.getElementById("searchBox").addEventListener("input", render);
 
   // ---- Save all（強制送出所有還在防抖動等待中的本期讀數）----
-  document.getElementById("saveAllBtn").addEventListener("click", ()=>{
-    flushPendingCurrSaves();
+  document.getElementById("saveAllBtn").addEventListener("click", async ()=>{
+    await flushPendingCurrSaves();
     showToast("已儲存本期抄錶資料");
   });
 
@@ -2120,15 +2495,15 @@
     if(!file || !targetId) return;
     showToast("照片儲存中…");
     try{
-      const id = crypto.randomUUID();
-      await savePhotoBlob(id, file, file.type);
-      const url = await resolvePhotoUrl(id);
-      const photo = {id, url};
+      const fd = new FormData();
+      fd.append("file", file);
+      const photo = await apiFetch("/readings/"+targetId+"/photos?month="+encodeURIComponent(currentMonthKey), {
+        method:"POST", body: fd
+      }).then(r=>r.json());
       const readings = loadReadings(currentMonthKey);
       if(!readings[targetId]) readings[targetId] = {curr:"", photos:[]};
       if(!readings[targetId].photos) readings[targetId].photos = [];
-      readings[targetId].photos.push(photo);
-      persistReadings();
+      readings[targetId].photos.push({id:photo.id, url:photoUrl(photo.id)});
       render();
       showToast("照片已附加");
     }catch(err){
@@ -2228,8 +2603,59 @@
   });
   updateRecordDateText();
 
+  // ---- 登入畫面 ----
+  const loginOverlayEl = document.getElementById("loginOverlay");
+  const loginErrorEl = document.getElementById("loginError");
+  function showLoginOverlay(){
+    loginOverlayEl.classList.add("open");
+  }
+  function hideLoginOverlay(){
+    loginOverlayEl.classList.remove("open");
+  }
+  onAuthRequired = showLoginOverlay;
+
+  async function apiLogin(username, password){
+    const res = await fetch(API_BASE + "/auth/login", {
+      method:"POST", credentials:"include", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({username, password})
+    });
+    if(!res.ok){
+      let message = "帳號或密碼錯誤";
+      try{ const body = await res.json(); if(body && body.message) message = body.message; }catch(e){}
+      throw new Error(message);
+    }
+    return res.json();
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const btn = document.getElementById("loginSubmitBtn");
+    loginErrorEl.classList.remove("show");
+    btn.disabled = true;
+    try{
+      await apiLogin(username, password);
+      document.getElementById("loginPassword").value = "";
+      hideLoginOverlay();
+      await bootAppData();
+    }catch(err){
+      loginErrorEl.textContent = err.message || "登入失敗";
+      loginErrorEl.classList.add("show");
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("mLogout").addEventListener("click", ()=>{
+    showConfirm("確定要登出嗎？", async ()=>{
+      try{ await fetch(API_BASE+"/auth/logout", {method:"POST", credentials:"include"}); }catch(e){}
+      location.reload();
+    }, {title:"登出", okLabel:"登出", danger:true});
+  });
+
   // ---- init ----
-  async function bootApp(){
+  async function bootAppData(){
     buildMonthOptions();
     try{
       await loadSites();
@@ -2237,6 +2663,21 @@
       render();
     }catch(e){
       showToast(e.message || "載入資料失敗，請重新整理頁面");
+    }
+  }
+
+  async function bootApp(){
+    loadSettings();
+    try{
+      const res = await fetch(API_BASE + "/auth/me", {credentials:"include"});
+      if(res.ok){
+        hideLoginOverlay();
+        await bootAppData();
+      }else{
+        showLoginOverlay();
+      }
+    }catch(e){
+      showLoginOverlay();
     }
   }
   bootApp();

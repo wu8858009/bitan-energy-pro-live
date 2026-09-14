@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
@@ -16,10 +16,10 @@ namespace BiTanEnergyApi.Controllers;
 [Authorize]
 public class AuthController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly MongoContext _db;
     private static readonly PasswordHasher<AdminUser> Hasher = new();
 
-    public AuthController(AppDbContext db)
+    public AuthController(MongoContext db)
     {
         _db = db;
     }
@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
-        var user = await _db.AdminUsers.FirstOrDefaultAsync(u => u.Username == req.Username);
+        var user = await _db.AdminUsers.Find(u => u.Username == req.Username).FirstOrDefaultAsync();
         if (user == null)
             return Unauthorized(new { message = "帳號或密碼錯誤" });
 
@@ -72,11 +72,10 @@ public class AuthController : ControllerBase
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req)
     {
-        var uidClaim = User.FindFirstValue("uid");
-        if (uidClaim == null || !int.TryParse(uidClaim, out var uid))
-            return Unauthorized();
+        var uid = User.FindFirstValue("uid");
+        if (string.IsNullOrEmpty(uid)) return Unauthorized();
 
-        var user = await _db.AdminUsers.FindAsync(uid);
+        var user = await _db.AdminUsers.Find(u => u.Id == uid).FirstOrDefaultAsync();
         if (user == null) return Unauthorized();
 
         var result = Hasher.VerifyHashedPassword(user, user.PasswordHash, req.CurrentPassword);
@@ -87,7 +86,7 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "新密碼至少需要 6 個字元" });
 
         user.PasswordHash = Hasher.HashPassword(user, req.NewPassword);
-        await _db.SaveChangesAsync();
+        await _db.AdminUsers.ReplaceOneAsync(u => u.Id == uid, user);
         return Ok();
     }
 }

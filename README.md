@@ -1,8 +1,6 @@
 # 碧潭能源管理系統 PRO
 
-水電瓦斯抄錶、用量趨勢分析與異常警示的管理工具。前端是單頁 HTML/CSS/JS（`index.html`），後端是 ASP.NET Core Web API + SQL Server，資料集中存放在資料庫，可供多站點、多裝置共用；需要管理員帳號密碼登入才能讀寫資料。
-
-> 舊版（純前端、資料存在瀏覽器 `localStorage`）已不再是預設架構。若只是想在單機示範或離線試用，仍可以直接用瀏覽器打開 `index.html`，但登入畫面之後的所有功能都需要連到後端 API 才能使用。
+水電瓦斯抄錶、用量趨勢分析與異常警示的管理工具。前端是單頁 HTML/CSS/JS（`index.html`），後端是 ASP.NET Core Web API + MongoDB（Atlas），資料集中存放在資料庫，可供多站點、多裝置共用；需要管理員帳號密碼登入才能讀寫資料。
 
 ## 功能
 
@@ -23,32 +21,35 @@
 瀏覽器 (index.html)  ──同源 fetch /api/...──▶  ASP.NET Core Web API (backend/BiTanEnergyApi)
                                                         │
                                                         ▼
-                                                  SQL Server（站點、讀數）
+                                                  MongoDB Atlas（站點、讀數、內嵌照片中繼資料）
                                                   伺服器磁碟（錶況照片檔案）
 ```
 
 - 前端：純原生 HTML / CSS / JavaScript，Canvas 2D 手繪圖表，無外部框架或建置流程
-- 後端：ASP.NET Core Web API（.NET 8）+ Entity Framework Core，Cookie 驗證
-- 資料庫：SQL Server（開發測試用 LocalDB／正式環境用 SQL Server 2014）
-- 部署目標：Windows Server 2019 + IIS10，詳見 [DEPLOY-IIS.md](DEPLOY-IIS.md)
+- 後端：ASP.NET Core Web API（.NET 8）+ MongoDB.Driver，Cookie 驗證
+- 資料庫：MongoDB（開發與正式環境皆使用同一個 MongoDB Atlas 免費層叢集，用不同資料庫名稱區隔）
+- 部署目標：Render.com，詳見 [DEPLOY-RENDER.md](DEPLOY-RENDER.md)
 
 ## 快速開始（本機開發）
 
-需要先安裝 [.NET 8 SDK](https://dotnet.microsoft.com/download) 與 SQL Server LocalDB（隨 Visual Studio / SQL Server Express 安裝）。
+需要先安裝 [.NET 8 SDK](https://dotnet.microsoft.com/download) 與一個 MongoDB Atlas 免費層叢集（見 [DEPLOY-RENDER.md](DEPLOY-RENDER.md) 第 1 節）。
+
+本機開發用的 Mongo 連線字串**不要**寫進 `appsettings.Development.json`（會進 git），改用 .NET 的 user-secrets：
 
 ```
 cd backend/BiTanEnergyApi
-dotnet ef database update   # 用 appsettings.Development.json 的 LocalDB 連線字串建立資料庫
+dotnet user-secrets init
+dotnet user-secrets set "MongoDb:ConnectionString" "mongodb+srv://<user>:<password>@xxxxx.mongodb.net/?retryWrites=true&w=majority"
 dotnet run --urls http://localhost:5241
 ```
 
-啟動後端後，另外用任一種靜態伺服器把專案根目錄（含 `index.html`）架起來，並把 [index.html](index.html) 開頭的 `API_BASE` 常數改成 `http://localhost:5241/api`（正式部署時維持相對路徑 `/api` 即可，因為前端與 API 會架在同一個 IIS 網站下）。
+啟動後端後，直接用瀏覽器開 `http://localhost:5241/`（後端會同時把 `index.html` 服務出來，同源不用處理 CORS）。
 
 預設會用 `appsettings.Development.json` 裡的 `Admin:InitialUsername` / `Admin:InitialPassword`（`admin` / `ChangeMe123!`）自動建立第一個管理員帳號，正式環境請務必改成自己的密碼。
 
 ## 部署到正式環境
 
-正式環境目標是 **Windows Server 2019 + IIS10 + SQL Server 2014**，完整步驟（建立資料庫、`dotnet publish`、IIS 網站與應用程式設定、權限）請見 [DEPLOY-IIS.md](DEPLOY-IIS.md)。
+正式環境目標是 **Render.com + MongoDB Atlas**，完整步驟（建立 Atlas 叢集、Render Web Service 設定、環境變數）請見 [DEPLOY-RENDER.md](DEPLOY-RENDER.md)。
 
 ## 檔案結構
 
@@ -62,17 +63,16 @@ dotnet run --urls http://localhost:5241
 ├── backend/
 │   └── BiTanEnergyApi/             # ASP.NET Core Web API
 │       ├── Controllers/            # Auth / Sites / Readings / Backup
-│       ├── Data/                   # EF Core DbContext、種子管理員帳號
+│       ├── Data/                   # MongoContext、索引初始化、種子管理員帳號
 │       ├── Models/                 # Site / MonthlyReading / ReadingPhoto / AdminUser
-│       ├── Migrations/             # EF Core migrations，含可直接在 SSMS 執行的 deploy.sql
-│       └── appsettings*.json       # 連線字串、上傳路徑、管理員帳號設定
-├── DEPLOY-IIS.md                   # Windows Server 2019 + IIS10 + SQL Server 2014 部署步驟
+│       └── appsettings*.json       # Mongo 連線字串、上傳路徑、管理員帳號設定
+├── DEPLOY-RENDER.md                # Render.com + MongoDB Atlas 部署步驟
 └── README.md
 ```
 
 ## 資料儲存說明
 
-- 站點清單、每月抄錶讀數：存在 SQL Server 資料庫
+- 站點清單、每月抄錶讀數：存在 MongoDB（照片中繼資料內嵌在對應的月份讀數文件裡）
 - 錶況照片：以檔案形式存在伺服器磁碟（`Uploads:RootPath` 設定的資料夾），資料庫只存相對路徑
 - 深色模式偏好：純前端 UI 設定，仍留在瀏覽器 `localStorage`
 - 「選單 → 匯出完整備份」匯出站點與各月讀數的 JSON（**不含照片檔案**），照片請透過伺服器檔案備份機制另外保護

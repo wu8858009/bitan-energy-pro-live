@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
@@ -9,12 +10,12 @@ namespace BiTanEnergyApi.Controllers;
 
 [ApiController]
 [Route("api/sites")]
-// [Authorize] — 暫時移除登入驗證，需要恢復時把這行取消註解
+[Authorize]
 public class SitesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly MongoContext _db;
 
-    public SitesController(AppDbContext db)
+    public SitesController(MongoContext db)
     {
         _db = db;
     }
@@ -33,7 +34,7 @@ public class SitesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<SiteDto>>> GetAll()
     {
-        var sites = await _db.Sites.OrderBy(s => s.Id).ToListAsync();
+        var sites = await _db.Sites.Find(_ => true).SortBy(s => s.Id).ToListAsync();
         return Ok(sites.Select(ToDto));
     }
 
@@ -45,6 +46,7 @@ public class SitesController : ControllerBase
 
         var site = new Site
         {
+            Id = ObjectId.GenerateNewId().ToString(),
             Group = req.Group,
             Name = req.Site,
             Location = req.Location,
@@ -52,18 +54,17 @@ public class SitesController : ControllerBase
             Type = req.Type,
             BasePrev = req.BasePrev
         };
-        _db.Sites.Add(site);
-        await _db.SaveChangesAsync();
+        await _db.Sites.InsertOneAsync(site);
         return Ok(ToDto(site));
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<SiteDto>> Update(int id, [FromBody] SiteUpsertRequest req)
+    public async Task<ActionResult<SiteDto>> Update(string id, [FromBody] SiteUpsertRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
 
-        var site = await _db.Sites.FindAsync(id);
+        var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
 
         site.Group = req.Group;
@@ -72,17 +73,21 @@ public class SitesController : ControllerBase
         site.MeterNo = req.MeterNo;
         site.Type = req.Type;
         site.BasePrev = req.BasePrev;
-        await _db.SaveChangesAsync();
+        await _db.Sites.ReplaceOneAsync(s => s.Id == id, site);
         return Ok(ToDto(site));
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(string id)
     {
-        var site = await _db.Sites.FindAsync(id);
+        var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
-        _db.Sites.Remove(site);
-        await _db.SaveChangesAsync();
+
+        // Mongo has no FK cascade — clean up the site's readings (and their embedded
+        // photos) explicitly. Note: this does not delete the photos' physical files,
+        // matching the previous EF behavior (it never touched disk on site delete either).
+        await _db.MonthlyReadings.DeleteManyAsync(r => r.SiteId == id);
+        await _db.Sites.DeleteOneAsync(s => s.Id == id);
         return Ok();
     }
 }

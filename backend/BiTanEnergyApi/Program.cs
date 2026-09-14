@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 using BiTanEnergyApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,8 +10,7 @@ builder.Services.AddControllers().AddJsonOptions(o =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddSingleton<MongoContext>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -20,6 +18,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "BiTanEnergyAuth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.ExpireTimeSpan = TimeSpan.FromDays(14);
         options.SlidingExpiration = true;
         // This is an API, not an MVC login page — return status codes instead of redirecting.
@@ -37,7 +36,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 
 // Dev convenience only: lets index.html opened directly via file:// (Origin: null)
-// reach the local dotnet run backend; production (IIS, same-origin) never uses this.
+// reach the local dotnet run backend; production (Render, same-origin) never uses this.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevFileOrigin", policy =>
@@ -48,12 +47,9 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    if (app.Configuration.GetValue("Database:AutoMigrate", true))
-    {
-        db.Database.Migrate();
-    }
-    DbSeeder.SeedAdmin(db, app.Configuration);
+    var mongo = scope.ServiceProvider.GetRequiredService<MongoContext>();
+    await MongoIndexInitializer.EnsureIndexesAsync(mongo);
+    await DbSeeder.SeedAdminAsync(mongo, app.Configuration);
 }
 
 if (app.Environment.IsDevelopment())
@@ -61,17 +57,16 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevFileOrigin");
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    // Dev convenience only: serve the static frontend from the repo root so it's
-    // same-origin with /api when testing locally via `dotnet run` (in production,
-    // IIS serves the frontend separately — see DEPLOY-IIS.md).
-    var repoRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", ".."));
-    var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(repoRoot);
-    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
-    app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
 }
 
-// HTTPS termination is handled by IIS in front of this app; see DEPLOY-IIS.md.
+// Serve the static frontend (index.html) from the repo root so it's same-origin
+// with /api in every environment — Render runs this as a single Web Service,
+// so there's no separate static-file host and no CORS/cookie cross-origin concerns.
+var repoRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", ".."));
+var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(repoRoot);
+app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
+app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
+
 app.UseAuthentication();
 app.UseAuthorization();
 

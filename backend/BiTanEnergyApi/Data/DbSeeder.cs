@@ -1,13 +1,15 @@
 using Microsoft.AspNetCore.Identity;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using BiTanEnergyApi.Models;
 
 namespace BiTanEnergyApi.Data;
 
 public static class DbSeeder
 {
-    public static void SeedAdmin(AppDbContext db, IConfiguration config)
+    public static async Task SeedAdminAsync(MongoContext db, IConfiguration config)
     {
-        if (db.AdminUsers.Any()) return;
+        if (await db.AdminUsers.Find(_ => true).AnyAsync()) return;
 
         var username = config["Admin:InitialUsername"] ?? "admin";
         var password = config["Admin:InitialPassword"];
@@ -17,11 +19,10 @@ public static class DbSeeder
                 "尚未設定 Admin:InitialPassword（appsettings 或環境變數 Admin__InitialPassword），無法建立第一個管理員帳號。");
         }
 
-        var user = new AdminUser { Username = username };
+        var user = new AdminUser { Id = ObjectId.GenerateNewId().ToString(), Username = username };
         var hasher = new PasswordHasher<AdminUser>();
         user.PasswordHash = hasher.HashPassword(user, password);
 
-        db.AdminUsers.Add(user);
-        db.SaveChanges();
+        await db.AdminUsers.InsertOneAsync(user);
     }
 }

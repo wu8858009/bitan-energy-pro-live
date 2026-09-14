@@ -1,9 +1,7 @@
 {
-  "ConnectionStrings": {
-    "Default": "Server=YOUR_SQLSERVER2014_HOST;Database=BiTanEnergy;User Id=biTanEnergyApp;Password=YOUR_STRONG_PASSWORD;TrustServerCertificate=True"
-  },
-  "Database": {
-    "AutoMigrate": false
+  "MongoDb": {
+    "ConnectionString": "mongodb+srv://USER:PASSWORD@YOUR_CLUSTER.mongodb.net/?retryWrites=true&w=majority",
+    "DatabaseName": "BiTanEnergy"
   },
   "Uploads": {
     "RootPath": "D:\\BiTanEnergy\\uploads"

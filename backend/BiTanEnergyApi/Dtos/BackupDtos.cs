@@ -2,7 +2,7 @@ namespace BiTanEnergyApi.Dtos;
 
 public class BackupReadingEntry
 {
-    public int SiteId { get; set; }
+    public string SiteId { get; set; } = "";
     public string MonthKey { get; set; } = "";
     public decimal? Curr { get; set; }
 }

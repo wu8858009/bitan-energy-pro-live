@@ -2,7 +2,7 @@ namespace BiTanEnergyApi.Dtos;
 
 public class SiteDto
 {
-    public int Id { get; set; }
+    public string Id { get; set; } = "";
     public string Group { get; set; } = "";
     public string Site { get; set; } = "";
     public string Location { get; set; } = "";

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.23">
+<meta name="app-build" content="4.24">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.23</span>
+    <span class="pro-badge">PRO v4.24</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.23 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.24 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1394,16 +1394,15 @@
     return getPrevValueForMonth(site, currentMonthKey);
   }
 
-  // 首頁門市篩選下拉：只有 2 個以上不同門市時才顯示，選項會依目前站點資料自動更新，並保留原本選取的值
+  // 首頁門市篩選下拉：只有 2 個以上不同門市時才顯示。選項只認「門市管理」裡正式登記的
+  // 門市清單（管理員：全部門市／一般使用者：自己被指派的門市），不掃描目前站點資料，
+  // 這樣門市管理裡刪掉/新增的東西才會準確反映在這裡，不會被站點上殘留的舊群組字串干擾。
   function populateHomeGroupFilter(){
     const sel = document.getElementById("homeGroupFilterSelect");
     const wrap = document.getElementById("homeGroupFilterWrap");
     const divider = document.getElementById("homeGroupFilterDivider");
-    // 門市數量以「帳號被指派管理的門市」為準，不是只看目前有沒有站點——
-    // 剛建立、還沒有站點的空門市也要算進去，不然篩選選單會忽隱忽現。
-    const siteGroups = sites.map(s=>s.group||"未分類");
-    const assignedGroups = currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames;
-    const groups = [...new Set([...siteGroups, ...assignedGroups])].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    const groups = [...new Set(currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames)]
+      .sort((a,b)=>a.localeCompare(b,"zh-Hant"));
     if(groups.length <= 1){
       wrap.hidden = true;
       divider.hidden = true;

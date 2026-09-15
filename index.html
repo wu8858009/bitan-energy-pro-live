@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.30">
+<meta name="app-build" content="4.31">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -690,7 +690,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.30</span>
+    <span class="pro-badge">PRO v4.31</span>
   </div>
 
   <div class="control-panel">
@@ -932,7 +932,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.30 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.31 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1402,7 +1402,7 @@
     sites = await apiFetch("/sites").then(r=>r.json());
   }
   async function apiSaveSite(site){
-    const body = JSON.stringify({group:site.group, site:site.site, location:site.location, meterNo:site.meterNo, type:site.type, basePrev:site.basePrev, meterDigits:site.meterDigits || 4});
+    const body = JSON.stringify({group:site.group, site:site.site, location:site.location, meterNo:site.meterNo, type:site.type, basePrev:site.basePrev, baseMonth:site.baseMonth || null, meterDigits:site.meterDigits || 4});
     await apiFetch("/sites/"+site.id, {method:"PUT", headers:{"Content-Type":"application/json"}, body});
   }
 
@@ -1510,6 +1510,11 @@
     if(prevMonthReadings[site.id] && prevMonthReadings[site.id].curr !== undefined && prevMonthReadings[site.id].curr !== ""){
       return parseFloat(prevMonthReadings[site.id].curr) || 0;
     }
+    // BasePrev 只當作「BaseMonth 那個月」的基準值；沒有 BaseMonth 的舊站點維持舊行為
+    // （任何沒有讀數鏈的月份都套用），避免這次改版讓既有站點的計算結果無聲跑掉。
+    if(site.baseMonth){
+      return site.baseMonth === monthKey ? (site.basePrev || 0) : null;
+    }
     return site.basePrev || 0;
   }
   function getPrevValue(site){
@@ -1579,7 +1584,7 @@
       const currVal = r.curr;
       const meterMax = meterMaxFor(site);
       const currDisplay = rawDigitsOf(currVal, meterMax);
-      const usage = (currVal !== "" && currVal !== undefined) ? (computeEffectiveCurr(prevVal, currVal, meterMax) - prevVal) : null;
+      const usage = (currVal !== "" && currVal !== undefined && prevVal !== null) ? (computeEffectiveCurr(prevVal, currVal, meterMax) - prevVal) : null;
 
       const card = document.createElement("div");
       card.className = "meter-card " + meta.cls;
@@ -1682,7 +1687,7 @@
     const card = [...document.querySelectorAll(".meter-card")].find(c=>c.querySelector(`[data-curr="${siteId}"]`));
     if(!card) return;
     const usageEl = card.querySelector(".usage-box .val");
-    if(currStr === ""){
+    if(currStr === "" || prevVal === null){
       usageEl.textContent = "--";
       usageEl.classList.remove("positive");
     }else{
@@ -1695,6 +1700,8 @@
   // ---- 本期讀數驗證：偵測錶盤歸零重繞、輸入錯誤或異常暴增，即時提醒 ----
   function computeInputWarning(prevVal, currStr, maxVal){
     if(currStr === "" || currStr === undefined || currStr === null) return null;
+    // 這個月還沒有上期基準值（例如 BasePrev 只屬於別的月份），沒有東西可以比對，不做警示。
+    if(prevVal === null) return null;
     const raw = rawDigitsOf(currStr, maxVal);
     if(isNaN(raw)){
       return {level:"error", message:"請輸入有效的數字讀數"};
@@ -1943,6 +1950,7 @@
       const r = readings[site.id];
       if(!r || r.curr === "" || r.curr===undefined) return;
       const prevVal = getPrevValue(site);
+      if(prevVal === null) return;
       const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
       if(isNaN(usage)) return;
       if(site.type==="water") water += usage;
@@ -1955,6 +1963,7 @@
   }
 
   function formatNum(n, decimals){
+    if(n===null || n===undefined || (typeof n==="number" && isNaN(n))) return "--";
     if(decimals===undefined) decimals = (Number.isInteger(n) ? 0 : 1);
     if(Number.isInteger(n)) return String(n);
     return n.toFixed(1);
@@ -2049,21 +2058,25 @@
     const location = document.getElementById("f_location").value.trim();
     const meterNo = document.getElementById("f_meterno").value.trim();
     const prev = parseFloat(document.getElementById("f_prev").value) || 0;
-    const meterDigits = parseInt(document.getElementById("f_meterdigits").value, 10) || 5;
+    const meterDigits = parseInt(document.getElementById("f_meterdigits").value, 10) || 4;
 
     if(!site){
       showToast("請輸入站點名稱");
       return;
     }
 
-    const payload = {group, site, location, meterNo, type:chosenType, basePrev:prev, meterDigits};
+    // baseMonth 帶目前選定的月份：後端只有在「上期讀數」真的被改動時才會拿它更新基準月份，
+    // 單純改站名之類不相關的欄位不會悄悄搬動這個基準值原本代表的月份。
+    const payload = {group, site, location, meterNo, type:chosenType, basePrev:prev, baseMonth:currentMonthKey, meterDigits};
     const btn = document.getElementById("confirmBtn");
     btn.disabled = true;
     try{
       if(editingSiteId){
         const s = sites.find(x=>x.id===editingSiteId);
-        await apiFetch("/sites/"+editingSiteId, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
-        Object.assign(s, payload);
+        // 用後端實際回傳的資料覆蓋，而不是直接套用送出的 payload——
+        // baseMonth 是否真的更新由後端依 BasePrev 是否被改動來決定，前端不能假設一定套用。
+        const updated = await apiFetch("/sites/"+editingSiteId, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}).then(r=>r.json());
+        Object.assign(s, updated);
         showToast("站點資料已更新");
       }else{
         const created = await apiFetch("/sites", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}).then(r=>r.json());
@@ -2538,8 +2551,8 @@
       const r = readings[site.id] || {};
       const hasCurr = r.curr !== undefined && r.curr !== "";
       const currDisplay = hasCurr ? rawDigitsOf(r.curr, meterMaxFor(site)) : "";
-      const usage = hasCurr ? (computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal) : "";
-      rows.push([site.group||"", site.site||"", site.location||"", site.meterNo||"", meta.label, prevVal, currDisplay, usage, dateStr]);
+      const usage = (hasCurr && prevVal !== null) ? (computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal) : "";
+      rows.push([site.group||"", site.site||"", site.location||"", site.meterNo||"", meta.label, prevVal===null?"":prevVal, currDisplay, usage, dateStr]);
     });
     const csv = "\uFEFF" + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
     const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
@@ -2562,7 +2575,7 @@
       const r = readings[site.id] || {};
       const hasCurr = r.curr !== undefined && r.curr !== "";
       const currVal = hasCurr ? formatNum(rawDigitsOf(r.curr, meterMaxFor(site))) : "--";
-      const usage = hasCurr ? formatNum(computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site))-prevVal) : "--";
+      const usage = (hasCurr && prevVal !== null) ? formatNum(computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site))-prevVal) : "--";
       tableRows += `<tr>
         <td>${escapeHtml(site.group||"")}</td>
         <td>${escapeHtml(site.site||"")}</td>
@@ -2870,6 +2883,7 @@
       const r = readings[site.id];
       if(!r || r.curr === "" || r.curr === undefined) return;
       const prevVal = getPrevValueForMonth(site, monthKey);
+      if(prevVal === null) return;
       const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
       if(isNaN(usage)) return;
       totals[site.type] += usage;
@@ -2883,6 +2897,7 @@
     const r = readings[site.id];
     if(!r || r.curr === "" || r.curr === undefined) return null;
     const prevVal = getPrevValueForMonth(site, monthKey);
+    if(prevVal === null) return null;
     const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
     return isNaN(usage) ? null : usage;
   }

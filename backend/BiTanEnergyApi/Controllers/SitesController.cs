@@ -31,6 +31,7 @@ public class SitesController : ControllerBase
         MeterNo = s.MeterNo,
         Type = s.Type,
         BasePrev = s.BasePrev,
+        BaseMonth = s.BaseMonth,
         MeterDigits = s.MeterDigits
     };
 
@@ -70,6 +71,7 @@ public class SitesController : ControllerBase
             MeterNo = req.MeterNo,
             Type = req.Type,
             BasePrev = req.BasePrev,
+            BaseMonth = req.BaseMonth,
             MeterDigits = req.MeterDigits
         };
         await _db.Sites.InsertOneAsync(site);
@@ -99,6 +101,12 @@ public class SitesController : ControllerBase
         site.Location = req.Location;
         site.MeterNo = req.MeterNo;
         site.Type = req.Type;
+        // 只有「上期讀數」這個值真的被改動時，才把 BaseMonth 移到現在選定的月份——
+        // 單純改站名、錶號之類不相關的欄位，不該悄悄改變這個基準值原本代表的月份。
+        if (site.BasePrev != req.BasePrev)
+        {
+            site.BaseMonth = req.BaseMonth;
+        }
         site.BasePrev = req.BasePrev;
         site.MeterDigits = req.MeterDigits;
         await _db.Sites.ReplaceOneAsync(s => s.Id == id, site);

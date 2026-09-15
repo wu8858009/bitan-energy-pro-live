@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.13">
+<meta name="app-build" content="4.14">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -660,7 +660,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.13</span>
+    <span class="pro-badge">PRO v4.14</span>
   </div>
 
   <div class="control-panel">
@@ -889,7 +889,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.13 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.14 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1811,7 +1811,9 @@
     document.getElementById("dataSecuritySection").hidden = !isAdmin;
     document.getElementById("dataBackupSection").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;
-    document.getElementById("mSettingsSub").textContent = isAdmin ? "費用單價、每月預算、深色模式" : "深色模式";
+    document.getElementById("mSettingsSub").textContent = isAdmin
+      ? "費用單價、每月預算、深色模式、修改密碼"
+      : "深色模式、修改密碼";
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

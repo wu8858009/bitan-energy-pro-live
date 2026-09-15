@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.24">
+<meta name="app-build" content="4.25">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -86,6 +86,9 @@
     display:flex; align-items:center; gap:8px; height:44px;
   }
   .month-select select{border:none; background:transparent; font-weight:800; font-size:16px; color:var(--ink); appearance:none; -webkit-appearance:none; max-width:110px;}
+  /* 下拉選單展開時的選項清單：<option> 不會自動繼承 <select> 的顏色，要另外指定才不會在深色模式下看不清楚 */
+  .month-select select option{background:#fff; color:var(--ink);}
+  body.dark-mode .month-select select option{background:#1a2337; color:var(--ink);}
   .divider-v{width:1px; height:26px; background:rgba(255,255,255,.18); flex:0 0 auto;}
   .date-group{
     display:flex; align-items:center; gap:8px;
@@ -666,7 +669,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.24</span>
+    <span class="pro-badge">PRO v4.25</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +903,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.24 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.25 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

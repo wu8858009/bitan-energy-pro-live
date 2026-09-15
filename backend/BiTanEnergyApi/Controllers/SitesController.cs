@@ -14,6 +14,7 @@ namespace BiTanEnergyApi.Controllers;
 [Authorize]
 public class SitesController : ControllerBase
 {
+    private static readonly int[] AllowedMeterDigits = { 4, 5, 6 };
     private readonly MongoContext _db;
 
     public SitesController(MongoContext db)
@@ -29,7 +30,8 @@ public class SitesController : ControllerBase
         Location = s.Location,
         MeterNo = s.MeterNo,
         Type = s.Type,
-        BasePrev = s.BasePrev
+        BasePrev = s.BasePrev,
+        MeterDigits = s.MeterDigits
     };
 
     [HttpGet]
@@ -49,6 +51,8 @@ public class SitesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
+        if (!AllowedMeterDigits.Contains(req.MeterDigits))
+            return BadRequest(new { message = "儀表位數不正確" });
 
         if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit))
             return Forbid();
@@ -65,7 +69,8 @@ public class SitesController : ControllerBase
             Location = req.Location,
             MeterNo = req.MeterNo,
             Type = req.Type,
-            BasePrev = req.BasePrev
+            BasePrev = req.BasePrev,
+            MeterDigits = req.MeterDigits
         };
         await _db.Sites.InsertOneAsync(site);
         return Ok(ToDto(site));
@@ -76,6 +81,8 @@ public class SitesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
+        if (!AllowedMeterDigits.Contains(req.MeterDigits))
+            return BadRequest(new { message = "儀表位數不正確" });
 
         if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit))
             return Forbid();
@@ -93,6 +100,7 @@ public class SitesController : ControllerBase
         site.MeterNo = req.MeterNo;
         site.Type = req.Type;
         site.BasePrev = req.BasePrev;
+        site.MeterDigits = req.MeterDigits;
         await _db.Sites.ReplaceOneAsync(s => s.Id == id, site);
         return Ok(ToDto(site));
     }

@@ -43,7 +43,8 @@ public class BackupController : ControllerBase
                 Location = s.Location,
                 MeterNo = s.MeterNo,
                 Type = s.Type,
-                BasePrev = s.BasePrev
+                BasePrev = s.BasePrev,
+                MeterDigits = s.MeterDigits
             }).ToList(),
             Readings = readings.Select(r => new BackupReadingEntry
             {
@@ -81,7 +82,8 @@ public class BackupController : ControllerBase
                     Location = s.Location,
                     MeterNo = s.MeterNo,
                     Type = s.Type,
-                    BasePrev = s.BasePrev
+                    BasePrev = s.BasePrev,
+                    MeterDigits = s.MeterDigits > 0 ? s.MeterDigits : 5
                 };
                 await _db.Sites.InsertOneAsync(session, site);
                 idMap[s.Id] = site.Id;

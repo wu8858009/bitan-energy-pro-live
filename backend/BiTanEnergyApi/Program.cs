@@ -59,6 +59,7 @@ using (var scope = app.Services.CreateScope())
     var mongo = scope.ServiceProvider.GetRequiredService<MongoContext>();
     await MongoIndexInitializer.EnsureIndexesAsync(mongo);
     await DbSeeder.SeedAdminAsync(mongo, app.Configuration);
+    await StoreBackfill.EnsureExistingGroupsAsync(mongo);
 }
 
 if (app.Environment.IsDevelopment())

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.20">
+<meta name="app-build" content="4.21">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.20</span>
+    <span class="pro-badge">PRO v4.21</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.20 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.21 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -914,6 +914,15 @@
       <button type="button" class="menu-item" id="mPriceSettingsBtn">
         <span class="mi-ic">💰</span>
         <span class="mi-label">費用與預算<span class="mi-sub">設定水電瓦斯單價與每月預算</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+    </div>
+
+    <div class="menu-section" id="storeManagementSection">
+      <div class="menu-section-title">門市管理</div>
+      <button type="button" class="menu-item" id="mStoresBtn">
+        <span class="mi-ic">🏬</span>
+        <span class="mi-label">門市管理<span class="mi-sub">新增／重新命名／刪除門市</span></span>
         <span class="mi-chev">›</span>
       </button>
     </div>
@@ -964,6 +973,34 @@
     </div>
     <div class="sheet-actions">
       <button class="btn-cancel" id="priceSettingsCloseBtn">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 門市管理（僅 Admin 角色可見） -->
+<div class="overlay" id="storesOverlay">
+  <div class="sheet">
+    <h2>門市管理</h2>
+    <div id="storesList"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="storesCloseBtn">關閉</button>
+      <button class="btn-confirm" id="addStoreBtn">＋ 新增門市</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增／重新命名門市 -->
+<div class="overlay" id="storeFormOverlay">
+  <div class="sheet">
+    <h2 id="storeFormTitle">新增門市</h2>
+    <div class="login-error" id="storeFormError"></div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label>門市名稱</label>
+      <input type="text" id="sf_name" placeholder="例：忠孝店">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="storeFormCancelBtn">取消</button>
+      <button class="btn-confirm" id="storeFormSaveBtn">儲存</button>
     </div>
   </div>
 </div>
@@ -1825,6 +1862,115 @@
   });
   settingsOverlay.addEventListener("click", e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove("open"); });
 
+  // ---- 門市管理（僅 Admin 角色）----
+  const storesOverlay = document.getElementById("storesOverlay");
+  const storeFormOverlay = document.getElementById("storeFormOverlay");
+  const storeFormError = document.getElementById("storeFormError");
+  let editingStoreId = null;
+
+  document.getElementById("mStoresBtn").addEventListener("click", async ()=>{
+    settingsOverlay.classList.remove("open");
+    await loadStoresList();
+    storesOverlay.classList.add("open");
+  });
+  document.getElementById("storesCloseBtn").addEventListener("click", ()=>{
+    storesOverlay.classList.remove("open");
+    settingsOverlay.classList.add("open");
+  });
+  storesOverlay.addEventListener("click", e=>{
+    if(e.target===storesOverlay){ storesOverlay.classList.remove("open"); settingsOverlay.classList.add("open"); }
+  });
+
+  async function loadStoresList(){
+    try{
+      const stores = await apiFetch("/stores").then(r=>r.json());
+      const list = document.getElementById("storesList");
+      list.innerHTML = stores.map(s=>`
+        <div class="account-row">
+          <div class="ar-info">
+            <div class="ar-name">${escapeHtml(s.name)}</div>
+            <div class="ar-role">${s.siteCount} 個站點</div>
+          </div>
+          <div class="ar-actions">
+            <button type="button" data-edit-store="${s.id}">重新命名</button>
+            <button type="button" class="danger" data-del-store="${s.id}">刪除</button>
+          </div>
+        </div>`).join("") || `<div class="chart-empty">目前沒有門市，點下面「新增門市」建立一個</div>`;
+
+      list.querySelectorAll("[data-edit-store]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const s = stores.find(x=>x.id===btn.dataset.editStore);
+          if(s) openStoreForm("edit", s);
+        });
+      });
+      list.querySelectorAll("[data-del-store]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const s = stores.find(x=>x.id===btn.dataset.delStore);
+          if(s) deleteStore(s);
+        });
+      });
+    }catch(e){
+      showToast(e.message || "載入門市列表失敗");
+    }
+  }
+
+  function openStoreForm(mode, store){
+    editingStoreId = mode === "edit" ? store.id : null;
+    document.getElementById("storeFormTitle").textContent = mode === "edit" ? "重新命名門市" : "新增門市";
+    document.getElementById("sf_name").value = mode === "edit" ? store.name : "";
+    storeFormError.classList.remove("show");
+    storesOverlay.classList.remove("open");
+    storeFormOverlay.classList.add("open");
+  }
+  document.getElementById("addStoreBtn").addEventListener("click", ()=>openStoreForm("add"));
+  document.getElementById("storeFormCancelBtn").addEventListener("click", ()=>{
+    storeFormOverlay.classList.remove("open");
+    storesOverlay.classList.add("open");
+  });
+  storeFormOverlay.addEventListener("click", e=>{
+    if(e.target===storeFormOverlay){ storeFormOverlay.classList.remove("open"); storesOverlay.classList.add("open"); }
+  });
+
+  document.getElementById("storeFormSaveBtn").addEventListener("click", async ()=>{
+    const name = document.getElementById("sf_name").value.trim();
+    const btn = document.getElementById("storeFormSaveBtn");
+    storeFormError.classList.remove("show");
+    if(!name){ storeFormError.textContent = "請輸入門市名稱"; storeFormError.classList.add("show"); return; }
+    btn.disabled = true;
+    try{
+      if(editingStoreId){
+        await apiFetch("/stores/"+editingStoreId, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name})});
+        showToast("門市已更新");
+      }else{
+        await apiFetch("/stores", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name})});
+        showToast("門市已新增");
+      }
+      storeFormOverlay.classList.remove("open");
+      await loadStoresList();
+      storesOverlay.classList.add("open");
+      // 門市名稱可能連帶改了現有站點的群組，重新整理首頁資料
+      await loadSites();
+      render();
+    }catch(e){
+      storeFormError.textContent = e.message || "儲存失敗";
+      storeFormError.classList.add("show");
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  function deleteStore(store){
+    showConfirm(`確定要刪除門市「${store.name}」嗎？`, async ()=>{
+      try{
+        await apiFetch("/stores/"+store.id, {method:"DELETE"});
+        showToast("門市已刪除");
+        await loadStoresList();
+      }catch(e){
+        showToast(e.message || "刪除失敗");
+      }
+    }, {title:"刪除門市", okLabel:"刪除", danger:true});
+  }
+
   // ---- 修改我的密碼（任何角色皆可用）----
   const changePasswordOverlay = document.getElementById("changePasswordOverlay");
   const changePasswordError = document.getElementById("changePasswordError");
@@ -1897,8 +2043,9 @@
     document.getElementById("dataSecuritySection").hidden = !isAdmin;
     document.getElementById("dataBackupSection").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;
+    document.getElementById("storeManagementSection").hidden = !isAdmin;
     document.getElementById("mSettingsSub").textContent = isAdmin
-      ? "費用單價、每月預算、深色模式、修改密碼"
+      ? "費用單價、每月預算、門市管理、深色模式、修改密碼"
       : "深色模式、修改密碼";
     document.getElementById("addBtn").hidden = !canEdit();
   }
@@ -1964,10 +2111,21 @@
     }
   }
 
-  // 可指派的門市清單，取自目前已知站點的群組名稱（不重複、排序）
+  // 可指派的門市清單，改用門市管理裡正式建立的門市（而不是只從現有站點的群組反推），
+  // 這樣「先建好一個還沒有站點的空門市」也能在帳號指派時選得到。
   let selectedGroups = new Set();
+  let knownStoreNames = [];
+  async function refreshKnownStoreNames(){
+    try{
+      const stores = await apiFetch("/stores").then(r=>r.json());
+      knownStoreNames = stores.map(s=>s.name).sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    }catch(e){
+      // 讀不到門市清單時退回用現有站點的群組名稱，至少維持基本可用
+      knownStoreNames = [...new Set(sites.map(s=>s.group).filter(g=>g && g.trim()))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    }
+  }
   function allKnownGroups(){
-    return [...new Set(sites.map(s=>s.group).filter(g=>g && g.trim()))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    return knownStoreNames;
   }
   // 門市（群組）底下實際的站點名稱／地點，讓選擇時就知道這個門市代號對應到哪些真實資料
   function siteSummaryForGroup(g){
@@ -1985,7 +2143,7 @@
     const wrap = document.getElementById("af_groupsList");
     const groups = allKnownGroups();
     if(groups.length === 0){
-      wrap.innerHTML = `<div class="group-chips-empty">目前還沒有任何站點群組可選，請先到「新增」建立站點</div>`;
+      wrap.innerHTML = `<div class="group-chips-empty">目前還沒有任何門市，請先到「設定 → 門市管理」新增一個</div>`;
       return;
     }
     wrap.innerHTML = groups.map(g=>`
@@ -2008,7 +2166,7 @@
   }
   document.getElementById("af_role").addEventListener("change", syncGroupsGroupVisibility);
 
-  function openAccountForm(mode, account){
+  async function openAccountForm(mode, account){
     editingAccountId = mode === "edit" ? account.id : null;
     document.getElementById("accountFormTitle").textContent = mode === "edit" ? "修改帳號" : "新增帳號";
     document.getElementById("af_username").value = mode === "edit" ? account.username : "";
@@ -2017,6 +2175,7 @@
     document.getElementById("af_role").value = mode === "edit" ? account.role : "User";
     document.getElementById("af_permission").value = mode === "edit" ? (account.permissionLevel || "Full") : "Full";
     selectedGroups = new Set(mode === "edit" ? (account.assignedGroups || []) : []);
+    await refreshKnownStoreNames();
     renderGroupChips();
     syncGroupsGroupVisibility();
     accountsOverlay.classList.remove("open");

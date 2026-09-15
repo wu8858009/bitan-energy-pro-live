@@ -21,5 +21,9 @@ public static class MongoIndexInitializer
         var usernameKeys = Builders<AdminUser>.IndexKeys.Ascending(u => u.Username);
         await db.AdminUsers.Indexes.CreateOneAsync(
             new CreateIndexModel<AdminUser>(usernameKeys, new CreateIndexOptions { Unique = true }));
+
+        var storeNameKeys = Builders<Store>.IndexKeys.Ascending(s => s.Name);
+        await db.Stores.Indexes.CreateOneAsync(
+            new CreateIndexModel<Store>(storeNameKeys, new CreateIndexOptions { Unique = true }));
     }
 }

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.21">
+<meta name="app-build" content="4.22">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.21</span>
+    <span class="pro-badge">PRO v4.22</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.21 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.22 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1390,7 +1390,11 @@
     const sel = document.getElementById("homeGroupFilterSelect");
     const wrap = document.getElementById("homeGroupFilterWrap");
     const divider = document.getElementById("homeGroupFilterDivider");
-    const groups = [...new Set(sites.map(s=>s.group||"未分類"))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    // 門市數量以「帳號被指派管理的門市」為準，不是只看目前有沒有站點——
+    // 剛建立、還沒有站點的空門市也要算進去，不然篩選選單會忽隱忽現。
+    const siteGroups = sites.map(s=>s.group||"未分類");
+    const assignedGroups = currentUserRole === "User" ? currentUserAssignedGroups : [];
+    const groups = [...new Set([...siteGroups, ...assignedGroups])].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
     if(groups.length <= 1){
       wrap.hidden = true;
       divider.hidden = true;

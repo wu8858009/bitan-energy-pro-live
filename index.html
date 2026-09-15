@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.16">
+<meta name="app-build" content="4.17">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -397,8 +397,14 @@
   body.dark-mode .account-row .ar-actions button{background:#1a2337; color:var(--ink-soft);}
   body.dark-mode .account-row .ar-actions button.danger{background:#2a1518; color:#ff8a80;}
   .group-chips{display:flex; flex-wrap:wrap; gap:8px;}
-  .group-chip{border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700; color:var(--ink-soft);}
+  .group-chip{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left;
+    border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:8px 12px;
+    font-size:13px; font-weight:700; color:var(--ink-soft);
+  }
+  .group-chip .gc-sub{font-size:11px; font-weight:600; color:var(--ink-soft); opacity:.75;}
   .group-chip.active{border-color:var(--navy-800); background:#eaf0ff; color:var(--navy-900);}
+  .group-chip.active .gc-sub{color:var(--navy-800); opacity:.75;}
   .group-chips-empty{font-size:12.5px; color:var(--ink-soft);}
   body.dark-mode .group-chip{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
   body.dark-mode .group-chip.active{border-color:var(--blue-tag); background:rgba(47,123,246,.18); color:#7aa8ff;}
@@ -660,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.16</span>
+    <span class="pro-badge">PRO v4.17</span>
   </div>
 
   <div class="control-panel">
@@ -889,7 +895,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.16 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.17 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1910,6 +1916,14 @@
   function allKnownGroups(){
     return [...new Set(sites.map(s=>s.group).filter(g=>g && g.trim()))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
   }
+  // 門市（群組）底下實際的站點名稱／地點，讓選擇時就知道這個門市代號對應到哪些真實資料
+  function siteSummaryForGroup(g){
+    const matches = sites.filter(s=>s.group===g);
+    if(!matches.length) return "尚無站點";
+    const names = matches.map(s=>s.location || s.site).filter(Boolean);
+    const shown = names.slice(0,2).join("、");
+    return names.length > 2 ? `${shown} 等${names.length}筆` : shown;
+  }
   function renderGroupChips(){
     const wrap = document.getElementById("af_groupsList");
     const groups = allKnownGroups();
@@ -1917,7 +1931,11 @@
       wrap.innerHTML = `<div class="group-chips-empty">目前還沒有任何站點群組可選，請先到「新增」建立站點</div>`;
       return;
     }
-    wrap.innerHTML = groups.map(g=>`<button type="button" class="group-chip${selectedGroups.has(g)?" active":""}" data-group="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join("");
+    wrap.innerHTML = groups.map(g=>`
+      <button type="button" class="group-chip${selectedGroups.has(g)?" active":""}" data-group="${escapeHtml(g)}">
+        <span class="gc-name">${escapeHtml(g)}</span>
+        <span class="gc-sub">${escapeHtml(siteSummaryForGroup(g))}</span>
+      </button>`).join("");
     wrap.querySelectorAll(".group-chip").forEach(chip=>{
       chip.addEventListener("click", ()=>{
         const g = chip.dataset.group;

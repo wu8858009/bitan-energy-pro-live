@@ -68,7 +68,6 @@ public class SitesController : ControllerBase
             BasePrev = req.BasePrev
         };
         await _db.Sites.InsertOneAsync(site);
-        await StoreBackfill.EnsureStoreExistsAsync(_db, site.Group);
         return Ok(ToDto(site));
     }
 
@@ -95,7 +94,6 @@ public class SitesController : ControllerBase
         site.Type = req.Type;
         site.BasePrev = req.BasePrev;
         await _db.Sites.ReplaceOneAsync(s => s.Id == id, site);
-        await StoreBackfill.EnsureStoreExistsAsync(_db, site.Group);
         return Ok(ToDto(site));
     }
 

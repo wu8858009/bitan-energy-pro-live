@@ -110,9 +110,6 @@ public class BackupController : ControllerBase
             throw;
         }
 
-        // 還原的備份可能帶有還沒登記過的門市名稱，補進門市清單，避免匯入後在帳號指派/首頁篩選裡消失。
-        await StoreBackfill.EnsureExistingGroupsAsync(_db);
-
         return Ok();
     }
 

@@ -18,9 +18,7 @@ public static class StoreBackfill
         }
     }
 
-    // 新增/修改站點時，如果打的群組名稱還沒有對應的門市紀錄，就地補上一筆，
-    // 這樣門市清單（帳號指派、首頁篩選）永遠跟站點實際在用的群組同步，不用等下次重啟。
-    public static async Task EnsureStoreExistsAsync(MongoContext db, string? name)
+    private static async Task EnsureStoreExistsAsync(MongoContext db, string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return;
         var exists = await db.Stores.Find(s => s.Name == name).AnyAsync();

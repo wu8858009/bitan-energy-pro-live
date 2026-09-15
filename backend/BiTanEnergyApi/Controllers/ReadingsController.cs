@@ -131,6 +131,7 @@ public class ReadingsController : ControllerBase
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
         if (!await CanAccessSiteAsync(siteId)) return Forbid();
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit)) return Forbid();
 
         var filter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
         var update = Builders<MonthlyReading>.Update
@@ -160,6 +161,7 @@ public class ReadingsController : ControllerBase
             return BadRequest(new { message = "不支援的圖片格式" });
 
         if (!await CanAccessSiteAsync(siteId)) return Forbid();
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit)) return Forbid();
 
         // Ensure the reading document exists before appending the photo.
         var ensureFilter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
@@ -225,6 +227,7 @@ public class ReadingsController : ControllerBase
         var photo = reading?.Photos.FirstOrDefault(p => p.Id == photoId);
         if (photo == null || reading == null) return NotFound();
         if (!await CanAccessSiteAsync(reading.SiteId)) return Forbid();
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionFull)) return Forbid();
 
         var absPath = Path.Combine(UploadsRoot(), photo.FilePath.Replace('/', Path.DirectorySeparatorChar));
         await _db.MonthlyReadings.UpdateOneAsync(

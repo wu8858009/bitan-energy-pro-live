@@ -17,4 +17,5 @@ public class MeResponse
     public string Username { get; set; } = "";
     public string Role { get; set; } = "";
     public List<string> AssignedGroups { get; set; } = new();
+    public string PermissionLevel { get; set; } = "Full"; // "View" | "Edit" | "Full"
 }

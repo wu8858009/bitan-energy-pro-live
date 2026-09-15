@@ -50,6 +50,9 @@ public class SitesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
 
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit))
+            return Forbid();
+
         var allowedGroups = await AccessControl.GetAllowedGroupsAsync(User, _db);
         if (allowedGroups != null && !allowedGroups.Contains(req.Group))
             return Forbid();
@@ -74,6 +77,9 @@ public class SitesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Site))
             return BadRequest(new { message = "請輸入站點名稱" });
 
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit))
+            return Forbid();
+
         var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
 
@@ -94,6 +100,9 @@ public class SitesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionFull))
+            return Forbid();
+
         var site = await _db.Sites.Find(s => s.Id == id).FirstOrDefaultAsync();
         if (site == null) return NotFound();
 

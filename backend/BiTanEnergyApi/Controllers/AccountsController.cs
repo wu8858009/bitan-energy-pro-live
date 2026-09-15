@@ -7,6 +7,7 @@ using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
+using BiTanEnergyApi.Services;
 
 namespace BiTanEnergyApi.Controllers;
 
@@ -17,6 +18,8 @@ namespace BiTanEnergyApi.Controllers;
 public class AccountsController : ControllerBase
 {
     private static readonly string[] AllowedRoles = { "Admin", "User" };
+    private static readonly string[] AllowedPermissionLevels =
+        { AccessControl.PermissionView, AccessControl.PermissionEdit, AccessControl.PermissionFull };
     private readonly MongoContext _db;
     private static readonly PasswordHasher<AdminUser> Hasher = new();
 
@@ -31,6 +34,7 @@ public class AccountsController : ControllerBase
         Username = u.Username,
         Role = u.Role,
         AssignedGroups = u.AssignedGroups,
+        PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel,
         CreatedAt = u.CreatedAt
     };
 
@@ -50,6 +54,8 @@ public class AccountsController : ControllerBase
             return BadRequest(new { message = "密碼至少需要 6 個字元" });
         if (!AllowedRoles.Contains(req.Role))
             return BadRequest(new { message = "角色不正確" });
+        if (!AllowedPermissionLevels.Contains(req.PermissionLevel))
+            return BadRequest(new { message = "權限等級不正確" });
 
         var exists = await _db.AdminUsers.Find(u => u.Username == req.Username).AnyAsync();
         if (exists) return BadRequest(new { message = "這個帳號名稱已經存在" });
@@ -59,7 +65,8 @@ public class AccountsController : ControllerBase
             Id = ObjectId.GenerateNewId().ToString(),
             Username = req.Username,
             Role = req.Role,
-            AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>())
+            AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>()),
+            PermissionLevel = req.Role == "Admin" ? AccessControl.PermissionFull : req.PermissionLevel
         };
         user.PasswordHash = Hasher.HashPassword(user, req.Password);
         await _db.AdminUsers.InsertOneAsync(user);
@@ -74,6 +81,8 @@ public class AccountsController : ControllerBase
             return BadRequest(new { message = "請輸入帳號名稱" });
         if (!AllowedRoles.Contains(req.Role))
             return BadRequest(new { message = "角色不正確" });
+        if (!AllowedPermissionLevels.Contains(req.PermissionLevel))
+            return BadRequest(new { message = "權限等級不正確" });
 
         var user = await _db.AdminUsers.Find(u => u.Id == id).FirstOrDefaultAsync();
         if (user == null) return NotFound();
@@ -100,6 +109,7 @@ public class AccountsController : ControllerBase
         }
         user.Role = req.Role;
         user.AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>());
+        user.PermissionLevel = req.Role == "Admin" ? AccessControl.PermissionFull : req.PermissionLevel;
 
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == id, user);
         return Ok(ToDto(user));

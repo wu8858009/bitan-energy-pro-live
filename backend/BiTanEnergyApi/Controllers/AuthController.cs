@@ -8,6 +8,7 @@ using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
+using BiTanEnergyApi.Services;
 
 namespace BiTanEnergyApi.Controllers;
 
@@ -23,6 +24,14 @@ public class AuthController : ControllerBase
     {
         _db = db;
     }
+
+    private static MeResponse ToMeResponse(AdminUser u) => new()
+    {
+        Username = u.Username,
+        Role = u.Role,
+        AssignedGroups = u.AssignedGroups,
+        PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel
+    };
 
     [HttpPost("login")]
     [AllowAnonymous]
@@ -47,7 +56,7 @@ public class AuthController : ControllerBase
             new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14) });
 
-        return Ok(new MeResponse { Username = user.Username, Role = user.Role, AssignedGroups = user.AssignedGroups });
+        return Ok(ToMeResponse(user));
     }
 
     [HttpPost("logout")]
@@ -68,7 +77,7 @@ public class AuthController : ControllerBase
         var user = await _db.AdminUsers.Find(u => u.Id == uid).FirstOrDefaultAsync();
         if (user == null) return Unauthorized();
 
-        return Ok(new MeResponse { Username = user.Username, Role = user.Role, AssignedGroups = user.AssignedGroups });
+        return Ok(ToMeResponse(user));
     }
 
     [HttpPost("change-password")]

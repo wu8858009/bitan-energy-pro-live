@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.19">
+<meta name="app-build" content="4.20">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.19</span>
+    <span class="pro-badge">PRO v4.20</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.19 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.20 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1025,6 +1025,14 @@
       <label>可管理門市（僅一般使用者適用，不勾選表示看不到任何站點）</label>
       <div class="group-chips" id="af_groupsList"></div>
     </div>
+    <div class="form-group" id="af_permissionGroup">
+      <label>權限等級（僅一般使用者適用）</label>
+      <select id="af_permission">
+        <option value="View">只看（不能新增/修改/刪除）</option>
+        <option value="Edit">可編輯（可新增/修改，不能刪除）</option>
+        <option value="Full" selected>可全權（新增/修改/刪除都可以）</option>
+      </select>
+    </div>
     <div class="form-group" style="margin-bottom:0;">
       <label id="af_passwordLabel">密碼</label>
       <input type="password" id="af_password" placeholder="至少 6 個字元" autocomplete="new-password">
@@ -1146,6 +1154,7 @@
   let currentPhotoTargetId = null;
   let currentUserRole = null;
   let currentUserAssignedGroups = [];
+  let currentUserPermissionLevel = "Full";
 
   // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
   const API_BASE = "/api";
@@ -1405,21 +1414,21 @@
         <div class="card-top">
           <div>
             <span class="name-tag">${escapeHtml(site.group||"未分類")}</span>
-            <a href="#" class="edit-link" data-edit="${site.id}">修改資料</a>
+            ${canEdit() ? `<a href="#" class="edit-link" data-edit="${site.id}">修改資料</a>` : ""}
           </div>
           <div class="usage-box">
             <div class="lbl">用量</div>
             <div class="val ${usage!==null && usage>0 ? 'positive':''}">${usage!==null ? formatNum(usage) : '--'}</div>
           </div>
         </div>
-        <div class="type-badge" data-swap="${site.id}">${meta.icon} ${meta.label} <span class="swap">🔄</span></div>
+        <div class="type-badge" ${canEdit() ? `data-swap="${site.id}"` : ""}>${meta.icon} ${meta.label} ${canEdit() ? '<span class="swap">🔄</span>' : ""}</div>
         <div class="site-name">${escapeHtml(site.site)}</div>
         <div class="site-meta">📍 ${escapeHtml(site.location)} ｜ 錶:${escapeHtml(site.meterNo||"--")}</div>
 
         <div class="reading-row">
           <div>
             <div class="field-label"><span>上期</span>
-              <button class="lock-btn" data-unlock="${site.id}">🔒 管理修正</button>
+              ${canEdit() ? `<button class="lock-btn" data-unlock="${site.id}">🔒 管理修正</button>` : ""}
             </div>
             <div class="prev-field" id="prevField_${site.id}">${formatNum(prevVal)}</div>
           </div>
@@ -1427,18 +1436,19 @@
             <div class="field-label"><span>本期 (限4位)</span></div>
             <div class="curr-field" id="currFieldWrap_${site.id}">
               <input type="number" inputmode="decimal" maxlength="4" data-curr="${site.id}"
-                value="${currVal!==undefined ? currVal : ''}" placeholder="輸入讀數">
+                value="${currVal!==undefined ? currVal : ''}" placeholder="輸入讀數" ${canEdit() ? "" : "disabled"}>
             </div>
           </div>
         </div>
         <div class="curr-warning" id="currWarning_${site.id}"></div>
 
-        <button class="photo-btn" data-photo="${site.id}">📷 拍攝照片</button>
+        ${canEdit() ? `<button class="photo-btn" data-photo="${site.id}">📷 拍攝照片</button>` : ""}
         <div class="photo-preview" id="photoPreview_${site.id}"></div>
 
+        ${canDelete() ? `
         <div class="card-actions">
           <button data-del="${site.id}" class="danger">🗑 刪除站點</button>
-        </div>
+        </div>` : ""}
       `;
       list.appendChild(card);
       updateInputWarningUI(site.id, prevVal, currVal);
@@ -1695,6 +1705,10 @@
   }
 
   function openAddSheet(){
+    if(!canEdit()){
+      showToast("你的帳號只有檢視權限，無法新增站點");
+      return;
+    }
     if(currentUserRole === "User" && currentUserAssignedGroups.length === 0){
       showToast("你尚未被指派任何門市，請聯絡管理員設定後再新增站點");
       return;
@@ -1871,7 +1885,11 @@
   const accountsOverlay = document.getElementById("accountsOverlay");
   const accountFormOverlay = document.getElementById("accountFormOverlay");
   const ROLE_LABEL = {Admin:"管理員", User:"一般使用者"};
+  const PERMISSION_LABEL = {View:"只看", Edit:"可編輯（不能刪除）", Full:"可全權"};
   let editingAccountId = null;
+
+  function canEdit(){ return currentUserPermissionLevel !== "View"; }
+  function canDelete(){ return currentUserPermissionLevel === "Full"; }
 
   function applyRoleUI(){
     const isAdmin = currentUserRole === "Admin";
@@ -1882,6 +1900,7 @@
     document.getElementById("mSettingsSub").textContent = isAdmin
       ? "費用單價、每月預算、深色模式、修改密碼"
       : "深色模式、修改密碼";
+    document.getElementById("addBtn").hidden = !canEdit();
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{
@@ -1908,6 +1927,7 @@
       const list = document.getElementById("accountsList");
       list.innerHTML = accounts.map(a=>{
         const roleLabel = ROLE_LABEL[a.role] || a.role;
+        const permissionLabel = a.role === "Admin" ? "" : (PERMISSION_LABEL[a.permissionLevel] || a.permissionLevel);
         const groupsLabel = a.role === "Admin"
           ? "不受門市限制"
           : ((a.assignedGroups && a.assignedGroups.length) ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、") : "尚未指派任何門市");
@@ -1917,7 +1937,7 @@
         <div class="account-row">
           <div class="ar-info">
             <div class="ar-name">${escapeHtml(a.username)}</div>
-            <div class="ar-role">${roleLabel} ・ ${groupsLabel}</div>
+            <div class="ar-role">${roleLabel}${permissionLabel ? "・" + escapeHtml(permissionLabel) : ""} ・ ${groupsLabel}</div>
             ${locationsLabel ? `<div class="ar-role">${locationsLabel}</div>` : ""}
           </div>
           <div class="ar-actions">
@@ -1982,7 +2002,9 @@
     });
   }
   function syncGroupsGroupVisibility(){
-    document.getElementById("af_groupsGroup").hidden = document.getElementById("af_role").value === "Admin";
+    const isAdminRole = document.getElementById("af_role").value === "Admin";
+    document.getElementById("af_groupsGroup").hidden = isAdminRole;
+    document.getElementById("af_permissionGroup").hidden = isAdminRole;
   }
   document.getElementById("af_role").addEventListener("change", syncGroupsGroupVisibility);
 
@@ -1993,6 +2015,7 @@
     document.getElementById("af_password").value = "";
     document.getElementById("af_password").placeholder = mode === "edit" ? "留空表示不修改密碼" : "至少 6 個字元";
     document.getElementById("af_role").value = mode === "edit" ? account.role : "User";
+    document.getElementById("af_permission").value = mode === "edit" ? (account.permissionLevel || "Full") : "Full";
     selectedGroups = new Set(mode === "edit" ? (account.assignedGroups || []) : []);
     renderGroupChips();
     syncGroupsGroupVisibility();
@@ -2013,6 +2036,7 @@
     const password = document.getElementById("af_password").value;
     const role = document.getElementById("af_role").value;
     const assignedGroups = role === "Admin" ? [] : [...selectedGroups];
+    const permissionLevel = document.getElementById("af_permission").value;
     const btn = document.getElementById("accountFormSaveBtn");
     if(!username){ showToast("請輸入帳號名稱"); return; }
     btn.disabled = true;
@@ -2020,14 +2044,14 @@
       if(editingAccountId){
         await apiFetch("/accounts/"+editingAccountId, {
           method:"PUT", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, newPassword: password || null, role, assignedGroups})
+          body: JSON.stringify({username, newPassword: password || null, role, assignedGroups, permissionLevel})
         });
         showToast("帳號已更新");
       }else{
         if(!password || password.length < 6){ showToast("密碼至少需要 6 個字元"); btn.disabled = false; return; }
         await apiFetch("/accounts", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, password, role, assignedGroups})
+          body: JSON.stringify({username, password, role, assignedGroups, permissionLevel})
         });
         showToast("帳號已新增");
       }
@@ -3175,6 +3199,7 @@
       }
       currentUserRole = me.role;
       currentUserAssignedGroups = me.assignedGroups || [];
+      currentUserPermissionLevel = me.permissionLevel || "Full";
       applyRoleUI();
       const pwdInput = document.getElementById("loginPassword");
       pwdInput.value = "";
@@ -3220,6 +3245,7 @@
         const me = await res.json();
         currentUserRole = me.role;
         currentUserAssignedGroups = me.assignedGroups || [];
+        currentUserPermissionLevel = me.permissionLevel || "Full";
         applyRoleUI();
         hideLoginOverlay();
         await bootAppData();

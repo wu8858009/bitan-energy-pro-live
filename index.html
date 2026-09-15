@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.17">
+<meta name="app-build" content="4.18">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.17</span>
+    <span class="pro-badge">PRO v4.18</span>
   </div>
 
   <div class="control-panel">
@@ -680,6 +680,11 @@
         <span id="recordDateText">2026/07/02</span>
         <span class="cal-ic">📅</span>
       </button>
+    </div>
+    <div class="divider-v" id="homeGroupFilterDivider" hidden></div>
+    <div class="month-select" id="homeGroupFilterWrap" hidden>
+      <span>🏬</span>
+      <select id="homeGroupFilterSelect"></select>
     </div>
   </div>
 
@@ -895,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.17 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.18 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1134,6 +1139,7 @@
 
   let sites = [];
   let currentFilter = "all";
+  let homeGroupFilter = "all";
   let editingSiteId = null;
   let chosenType = "water";
   let currentMonthKey = null;
@@ -1333,13 +1339,40 @@
     return getPrevValueForMonth(site, currentMonthKey);
   }
 
+  // 首頁門市篩選下拉：只有 2 個以上不同門市時才顯示，選項會依目前站點資料自動更新，並保留原本選取的值
+  function populateHomeGroupFilter(){
+    const sel = document.getElementById("homeGroupFilterSelect");
+    const wrap = document.getElementById("homeGroupFilterWrap");
+    const divider = document.getElementById("homeGroupFilterDivider");
+    const groups = [...new Set(sites.map(s=>s.group||"未分類"))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+    if(groups.length <= 1){
+      wrap.hidden = true;
+      divider.hidden = true;
+      homeGroupFilter = "all";
+      return;
+    }
+    wrap.hidden = false;
+    divider.hidden = false;
+    const prev = homeGroupFilter;
+    sel.innerHTML = `<option value="all">全部門市</option>` +
+      groups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    homeGroupFilter = groups.includes(prev) ? prev : "all";
+    sel.value = homeGroupFilter;
+  }
+  document.getElementById("homeGroupFilterSelect").addEventListener("change", e=>{
+    homeGroupFilter = e.target.value;
+    render();
+  });
+
   function render(){
+    populateHomeGroupFilter();
     const list = document.getElementById("cardList");
     const readings = loadReadings(currentMonthKey);
     const q = document.getElementById("searchBox").value.trim().toLowerCase();
 
     let filtered = sites.filter(s=>{
       if(currentFilter !== "all" && s.type !== currentFilter) return false;
+      if(homeGroupFilter !== "all" && (s.group||"未分類") !== homeGroupFilter) return false;
       if(q){
         const hay = (s.group+" "+s.site+" "+s.location+" "+s.meterNo).toLowerCase();
         if(!hay.includes(q)) return false;

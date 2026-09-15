@@ -9,7 +9,7 @@ public class SiteDto
     public string MeterNo { get; set; } = "";
     public string Type { get; set; } = "water";
     public decimal BasePrev { get; set; }
-    public int MeterDigits { get; set; } = 5;
+    public int MeterDigits { get; set; } = 4;
 }
 
 public class SiteUpsertRequest
@@ -20,5 +20,5 @@ public class SiteUpsertRequest
     public string MeterNo { get; set; } = "";
     public string Type { get; set; } = "water";
     public decimal BasePrev { get; set; }
-    public int MeterDigits { get; set; } = 5;
+    public int MeterDigits { get; set; } = 4;
 }

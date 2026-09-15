@@ -83,7 +83,7 @@ public class BackupController : ControllerBase
                     MeterNo = s.MeterNo,
                     Type = s.Type,
                     BasePrev = s.BasePrev,
-                    MeterDigits = s.MeterDigits > 0 ? s.MeterDigits : 5
+                    MeterDigits = s.MeterDigits > 0 ? s.MeterDigits : 4
                 };
                 await _db.Sites.InsertOneAsync(session, site);
                 idMap[s.Id] = site.Id;

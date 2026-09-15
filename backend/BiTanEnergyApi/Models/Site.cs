@@ -16,5 +16,5 @@ public class Site
     public decimal BasePrev { get; set; }
 
     // 錶盤位數（幾位數會翻回 0），給「上期讀數智慧補正」用來判斷是否發生翻轉。
-    public int MeterDigits { get; set; } = 5;
+    public int MeterDigits { get; set; } = 4;
 }

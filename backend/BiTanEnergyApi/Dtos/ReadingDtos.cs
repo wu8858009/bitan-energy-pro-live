@@ -10,6 +10,7 @@ public class ReadingDto
 {
     public string SiteId { get; set; } = "";
     public decimal? Curr { get; set; }
+    public decimal? PrevOverride { get; set; }
     public List<PhotoDto> Photos { get; set; } = new();
 }
 
@@ -18,10 +19,16 @@ public class ReadingUpsertRequest
     public decimal? Curr { get; set; }
 }
 
+public class PrevOverrideRequest
+{
+    public decimal? Value { get; set; }
+}
+
 public class AllReadingDto
 {
     public string SiteId { get; set; } = "";
     public string MonthKey { get; set; } = "";
     public decimal? Curr { get; set; }
+    public decimal? PrevOverride { get; set; }
     public List<PhotoDto> Photos { get; set; } = new();
 }

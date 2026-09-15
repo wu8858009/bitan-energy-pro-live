@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.29">
+<meta name="app-build" content="4.30">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -690,7 +690,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.29</span>
+    <span class="pro-badge">PRO v4.30</span>
   </div>
 
   <div class="control-panel">
@@ -776,10 +776,10 @@
       <input type="number" id="f_prev" placeholder="0" inputmode="decimal">
     </div>
     <div class="form-group">
-      <label>儀表位數<span class="mi-sub">錶盤幾位數會翻回 0，給「上期讀數智慧補正」判斷用</span></label>
+      <label>儀表位數<span class="mi-sub">錶盤幾位數會翻回 0，抄表自動翻轉偵測與智慧補正都會用到</span></label>
       <select id="f_meterdigits">
-        <option value="4">4 位</option>
-        <option value="5" selected>5 位</option>
+        <option value="4" selected>4 位</option>
+        <option value="5">5 位</option>
         <option value="6">6 位</option>
       </select>
     </div>
@@ -932,7 +932,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.29 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.30 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1166,6 +1166,9 @@
 <div class="overlay" id="prevCorrectionOverlay">
   <div class="sheet">
     <h2>上期讀數智慧補正</h2>
+    <div class="login-error" id="pc_overrideNote" style="background:#fff8ea; color:#8a5a00;">
+      這個月已經套用過覆蓋值，只影響本月計算 <button type="button" class="btn-cancel" id="pc_clearBtn" style="padding:4px 10px; font-size:12px; margin-left:8px;">清除覆蓋</button>
+    </div>
     <div class="form-group">
       <label>上期度數（目前資料庫記錄）</label>
       <div class="prev-field" id="pc_lastDisplay">0</div>
@@ -1254,29 +1257,32 @@
   };
 
   // ---- 儀表進位補正：錶盤讀數達上限會歸零重繞，本期讀數會小於上期 ----
-  // 本期輸入框只限4位數，所以錶盤本身也是每10000度歸零一次
-  const METER_MAX = 10000;
-  // 還原「錶盤上實際顯示」的數字：不論存的是原始輸入或已補正過的累計值，取後4碼即可
-  function rawDigitsOf(curr){
+  // 翻轉的位數改成每個站點自己的「儀表位數」設定（預設 4 位＝每 10000 度歸零一次），
+  // 不同站點的錶盤大小可能不一樣，不能通通當成 4 位。
+  function meterMaxFor(site){
+    return Math.pow(10, (site && site.meterDigits) || 4);
+  }
+  // 還原「錶盤上實際顯示」的數字：不論存的是原始輸入或已補正過的累計值，取後幾碼即可
+  function rawDigitsOf(curr, maxVal){
     if(curr === "" || curr === undefined || curr === null) return null;
     const n = parseFloat(curr);
     if(isNaN(n)) return NaN;
-    return ((n % METER_MAX) + METER_MAX) % METER_MAX;
+    return ((n % maxVal) + maxVal) % maxVal;
   }
   // 是否為錶盤歸零重繞（本期錶盤讀數小於上期的錶盤讀數）
-  function isCarryReading(prevVal, curr){
-    const raw = rawDigitsOf(curr);
+  function isCarryReading(prevVal, curr, maxVal){
+    const raw = rawDigitsOf(curr, maxVal);
     if(raw === null || isNaN(raw)) return false;
-    return raw < (prevVal % METER_MAX);
+    return raw < (prevVal % maxVal);
   }
   // 換算成連續累計值：若偵測到歸零重繞，自動加一輪進位；用這個值計算用量、並存回資料庫，
   // 讓下個月的「上期」自動帶入補正後的度數，本期輸入框則永遠只顯示使用者手打的錶盤數字
-  function computeEffectiveCurr(prevVal, curr){
-    const raw = rawDigitsOf(curr);
+  function computeEffectiveCurr(prevVal, curr, maxVal){
+    const raw = rawDigitsOf(curr, maxVal);
     if(raw === null || isNaN(raw)) return raw;
-    const base = Math.floor(prevVal / METER_MAX) * METER_MAX;
-    if(raw < (prevVal % METER_MAX)){
-      return base + METER_MAX + raw;
+    const base = Math.floor(prevVal / maxVal) * maxVal;
+    if(raw < (prevVal % maxVal)){
+      return base + maxVal + raw;
     }
     return base + raw;
   }
@@ -1396,7 +1402,7 @@
     sites = await apiFetch("/sites").then(r=>r.json());
   }
   async function apiSaveSite(site){
-    const body = JSON.stringify({group:site.group, site:site.site, location:site.location, meterNo:site.meterNo, type:site.type, basePrev:site.basePrev, meterDigits:site.meterDigits || 5});
+    const body = JSON.stringify({group:site.group, site:site.site, location:site.location, meterNo:site.meterNo, type:site.type, basePrev:site.basePrev, meterDigits:site.meterDigits || 4});
     await apiFetch("/sites/"+site.id, {method:"PUT", headers:{"Content-Type":"application/json"}, body});
   }
 
@@ -1407,6 +1413,7 @@
       if(!readingsCache[r.monthKey]) readingsCache[r.monthKey] = {};
       readingsCache[r.monthKey][r.siteId] = {
         curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr),
+        prevOverride: (r.prevOverride===null||r.prevOverride===undefined) ? null : Number(r.prevOverride),
         photos: (r.photos||[]).map(p=>({id:p.id, url:photoUrl(p.id)}))
       };
     });
@@ -1432,7 +1439,7 @@
       const site = sites.find(s=>s.id===siteId);
       const prevVal = site ? getPrevValueForMonth(site, monthKey) : 0;
       // 偵測錶盤歸零重繞時，存入補正後的累計值，讓下個月的「上期」自動帶入正確度數
-      const eff = computeEffectiveCurr(prevVal, value);
+      const eff = computeEffectiveCurr(prevVal, value, meterMaxFor(site));
       curr = isNaN(eff) ? null : eff;
     }
     try{
@@ -1492,6 +1499,12 @@
 
   // ---- resolve previous reading for a site in a given month ----
   function getPrevValueForMonth(site, monthKey){
+    // 這個月自己如果有設定「上期覆蓋值」，優先用它，且只影響這個月，不去動上個月的資料。
+    const thisMonthReadings = loadReadings(monthKey);
+    const thisEntry = thisMonthReadings[site.id];
+    if(thisEntry && thisEntry.prevOverride !== undefined && thisEntry.prevOverride !== null){
+      return parseFloat(thisEntry.prevOverride) || 0;
+    }
     const prevMonthKey = getPrevMonthKey(monthKey);
     const prevMonthReadings = loadReadings(prevMonthKey);
     if(prevMonthReadings[site.id] && prevMonthReadings[site.id].curr !== undefined && prevMonthReadings[site.id].curr !== ""){
@@ -1564,8 +1577,9 @@
       const prevVal = getPrevValue(site);
       const r = readings[site.id] || {curr:"", photos:[]};
       const currVal = r.curr;
-      const currDisplay = rawDigitsOf(currVal);
-      const usage = (currVal !== "" && currVal !== undefined) ? (computeEffectiveCurr(prevVal, currVal) - prevVal) : null;
+      const meterMax = meterMaxFor(site);
+      const currDisplay = rawDigitsOf(currVal, meterMax);
+      const usage = (currVal !== "" && currVal !== undefined) ? (computeEffectiveCurr(prevVal, currVal, meterMax) - prevVal) : null;
 
       const card = document.createElement("div");
       card.className = "meter-card " + meta.cls;
@@ -1592,9 +1606,9 @@
             <div class="prev-field" id="prevField_${site.id}">${formatNum(prevVal)}</div>
           </div>
           <div>
-            <div class="field-label"><span>本期 (限4位)</span></div>
+            <div class="field-label"><span>本期 (限${site.meterDigits||4}位)</span></div>
             <div class="curr-field" id="currFieldWrap_${site.id}">
-              <input type="number" inputmode="decimal" maxlength="4" data-curr="${site.id}"
+              <input type="number" inputmode="decimal" maxlength="${site.meterDigits||4}" data-curr="${site.id}"
                 value="${currDisplay!==null && !isNaN(currDisplay) ? currDisplay : ''}" placeholder="輸入讀數" ${canEdit() ? "" : "disabled"}>
             </div>
           </div>
@@ -1627,7 +1641,7 @@
     // bind events
     list.querySelectorAll("[data-curr]").forEach(inp=>{
       inp.addEventListener("input", ()=>{
-        if(inp.value.length>4) inp.value = inp.value.slice(0,4);
+        if(inp.maxLength>0 && inp.value.length>inp.maxLength) inp.value = inp.value.slice(0,inp.maxLength);
         const id = inp.dataset.curr;
         const readings2 = loadReadings(currentMonthKey);
         if(!readings2[id]) readings2[id] = {curr:"", photos:[]};
@@ -1672,21 +1686,21 @@
       usageEl.textContent = "--";
       usageEl.classList.remove("positive");
     }else{
-      const usage = computeEffectiveCurr(prevVal, currStr) - prevVal;
+      const usage = computeEffectiveCurr(prevVal, currStr, meterMaxFor(site)) - prevVal;
       usageEl.textContent = formatNum(usage);
       usageEl.classList.toggle("positive", usage>0);
     }
   }
 
   // ---- 本期讀數驗證：偵測錶盤歸零重繞、輸入錯誤或異常暴增，即時提醒 ----
-  function computeInputWarning(prevVal, currStr){
+  function computeInputWarning(prevVal, currStr, maxVal){
     if(currStr === "" || currStr === undefined || currStr === null) return null;
-    const raw = rawDigitsOf(currStr);
+    const raw = rawDigitsOf(currStr, maxVal);
     if(isNaN(raw)){
       return {level:"error", message:"請輸入有效的數字讀數"};
     }
-    const usage = computeEffectiveCurr(prevVal, currStr) - prevVal;
-    if(isCarryReading(prevVal, currStr)){
+    const usage = computeEffectiveCurr(prevVal, currStr, maxVal) - prevVal;
+    if(isCarryReading(prevVal, currStr, maxVal)){
       return {level:"carry", message:`偵測到錶盤歸零重繞，已自動進位補正，本期用量為 ${formatNum(usage)}`};
     }
     if(prevVal > 0 && usage > prevVal * 2 && usage >= 5){
@@ -1699,7 +1713,8 @@
     const warnEl = document.getElementById("currWarning_"+siteId);
     const fieldWrap = document.getElementById("currFieldWrap_"+siteId);
     if(!warnEl || !fieldWrap) return;
-    const warning = computeInputWarning(prevVal, currStr);
+    const site = sites.find(s=>s.id===siteId);
+    const warning = computeInputWarning(prevVal, currStr, meterMaxFor(site));
 
     fieldWrap.classList.remove("has-error","has-caution","has-carry");
     warnEl.classList.remove("show","lvl-error","lvl-caution","lvl-carry");
@@ -1719,28 +1734,16 @@
     if(usageEl && warning.level === "error") usageEl.classList.add("invalid");
   }
 
-  // 「上期」其實是上個月存的本期讀數；只有上個月完全沒紀錄時才是用 basePrev 墊底。
-  // 修正時要寫回真正的來源，這樣其他月份（上個月本身、以及往後推算的用量）才會一起連動更新。
+  // 「上期覆蓋值」是這個月自己專屬的資料，只影響目前選定的月份，不會動到上個月實際存的
+  // 讀數，也不會動到站點的基準值——切去別的月份看，完全不受影響。傳 null 表示清除覆蓋，
+  // 恢復用上個月的實際讀數／站點基準值去算。
   async function saveCorrectedPrevValue(site, newValue){
-    const prevMonthKey = getPrevMonthKey(currentMonthKey);
-    const prevMonthReadings = loadReadings(prevMonthKey);
-    const hasPrevMonthReading = prevMonthReadings[site.id] && prevMonthReadings[site.id].curr !== undefined && prevMonthReadings[site.id].curr !== "";
-
-    if(hasPrevMonthReading){
-      await apiFetch("/readings/"+site.id+"?month="+encodeURIComponent(prevMonthKey), {
-        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({curr:newValue})
-      });
-      prevMonthReadings[site.id].curr = String(newValue);
-    }else{
-      const prevBasePrev = site.basePrev;
-      site.basePrev = newValue;
-      try{
-        await apiSaveSite(site);
-      }catch(e){
-        site.basePrev = prevBasePrev;
-        throw e;
-      }
-    }
+    await apiFetch("/readings/"+site.id+"/prev-override?month="+encodeURIComponent(currentMonthKey), {
+      method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({value:newValue})
+    });
+    const readings = loadReadings(currentMonthKey);
+    if(!readings[site.id]) readings[site.id] = {curr:"", photos:[]};
+    readings[site.id].prevOverride = newValue;
   }
 
   function refreshAfterPrevCorrection(siteId){
@@ -1760,8 +1763,7 @@
   // 系統自動判斷是否翻轉並算出正確的累計值，用來補正「上期」這個計算基準。
   let prevCorrectionSiteId = null;
   function computeRolloverCorrection(site, lastVal, nowVal){
-    const digits = site.meterDigits || 5;
-    const maxVal = Math.pow(10, digits);
+    const maxVal = meterMaxFor(site);
     const last = Math.max(0, lastVal);
     const now = Math.max(0, Math.min(nowVal, maxVal - 1)); // 負數/超過位數上限都夾在合法範圍內
     const lastRemainder = last % maxVal;
@@ -1778,12 +1780,18 @@
     return {finalImport, isRollover, usage: finalImport - last, maxVal};
   }
 
+  function hasActivePrevOverride(siteId){
+    const readings = loadReadings(currentMonthKey);
+    const entry = readings[siteId];
+    return !!(entry && entry.prevOverride !== undefined && entry.prevOverride !== null);
+  }
   function openPrevCorrection(siteId){
     const site = sites.find(s=>s.id===siteId);
     if(!site) return;
     prevCorrectionSiteId = siteId;
     document.getElementById("pc_lastDisplay").textContent = formatNum(getPrevValue(site));
     document.getElementById("pc_now").value = "";
+    document.getElementById("pc_overrideNote").classList.toggle("show", hasActivePrevOverride(siteId));
     updatePrevCorrectionPreview();
     document.getElementById("prevCorrectionOverlay").classList.add("open");
     document.getElementById("pc_now").focus();
@@ -1792,6 +1800,18 @@
     document.getElementById("prevCorrectionOverlay").classList.remove("open");
     prevCorrectionSiteId = null;
   }
+  document.getElementById("pc_clearBtn").addEventListener("click", async ()=>{
+    const site = sites.find(s=>s.id===prevCorrectionSiteId);
+    if(!site) return;
+    try{
+      await saveCorrectedPrevValue(site, null);
+      closePrevCorrection();
+      refreshAfterPrevCorrection(site.id);
+      showToast("已清除這個月的覆蓋值，改回自動計算");
+    }catch(e){
+      showToast(e.message || "清除失敗");
+    }
+  });
   function updatePrevCorrectionPreview(){
     const site = sites.find(s=>s.id===prevCorrectionSiteId);
     const badge = document.getElementById("pc_rolloverBadge");
@@ -1813,7 +1833,7 @@
       badge.classList.remove("show");
       return;
     }
-    const digits = site.meterDigits || 5;
+    const digits = site.meterDigits || 4;
     const maxVal = Math.pow(10, digits);
     if(nowVal < 0 || nowVal >= maxVal){
       previewEl.textContent = "--";
@@ -1842,7 +1862,7 @@
     if(!site) return;
     const nowRaw = document.getElementById("pc_now").value;
     const nowVal = parseFloat(nowRaw);
-    const digits = site.meterDigits || 5;
+    const digits = site.meterDigits || 4;
     const maxVal = Math.pow(10, digits);
     if(nowRaw === "" || isNaN(nowVal)){ showToast("請輸入本期實體讀數"); return; }
     if(nowVal < 0 || nowVal >= maxVal){ showToast(`讀數請輸入 0 ～ ${maxVal-1} 之間`); return; }
@@ -1923,7 +1943,7 @@
       const r = readings[site.id];
       if(!r || r.curr === "" || r.curr===undefined) return;
       const prevVal = getPrevValue(site);
-      const usage = computeEffectiveCurr(prevVal, r.curr) - prevVal;
+      const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
       if(isNaN(usage)) return;
       if(site.type==="water") water += usage;
       else if(site.type==="elec") elec += usage;
@@ -1987,7 +2007,7 @@
     document.getElementById("f_location").value = "";
     document.getElementById("f_meterno").value = "";
     document.getElementById("f_prev").value = "";
-    document.getElementById("f_meterdigits").value = "5";
+    document.getElementById("f_meterdigits").value = "4";
     setTypeChoice("water");
     overlay.classList.add("open");
   }
@@ -2002,7 +2022,7 @@
     document.getElementById("f_location").value = site.location||"";
     document.getElementById("f_meterno").value = site.meterNo||"";
     document.getElementById("f_prev").value = site.basePrev||0;
-    document.getElementById("f_meterdigits").value = String(site.meterDigits || 5);
+    document.getElementById("f_meterdigits").value = String(site.meterDigits || 4);
     setTypeChoice(site.type);
     overlay.classList.add("open");
   }
@@ -2517,8 +2537,8 @@
       const prevVal = getPrevValue(site);
       const r = readings[site.id] || {};
       const hasCurr = r.curr !== undefined && r.curr !== "";
-      const currDisplay = hasCurr ? rawDigitsOf(r.curr) : "";
-      const usage = hasCurr ? (computeEffectiveCurr(prevVal, r.curr) - prevVal) : "";
+      const currDisplay = hasCurr ? rawDigitsOf(r.curr, meterMaxFor(site)) : "";
+      const usage = hasCurr ? (computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal) : "";
       rows.push([site.group||"", site.site||"", site.location||"", site.meterNo||"", meta.label, prevVal, currDisplay, usage, dateStr]);
     });
     const csv = "\uFEFF" + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
@@ -2541,8 +2561,8 @@
       const prevVal = getPrevValue(site);
       const r = readings[site.id] || {};
       const hasCurr = r.curr !== undefined && r.curr !== "";
-      const currVal = hasCurr ? formatNum(rawDigitsOf(r.curr)) : "--";
-      const usage = hasCurr ? formatNum(computeEffectiveCurr(prevVal, r.curr)-prevVal) : "--";
+      const currVal = hasCurr ? formatNum(rawDigitsOf(r.curr, meterMaxFor(site))) : "--";
+      const usage = hasCurr ? formatNum(computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site))-prevVal) : "--";
       tableRows += `<tr>
         <td>${escapeHtml(site.group||"")}</td>
         <td>${escapeHtml(site.site||"")}</td>
@@ -2850,7 +2870,7 @@
       const r = readings[site.id];
       if(!r || r.curr === "" || r.curr === undefined) return;
       const prevVal = getPrevValueForMonth(site, monthKey);
-      const usage = computeEffectiveCurr(prevVal, r.curr) - prevVal;
+      const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
       if(isNaN(usage)) return;
       totals[site.type] += usage;
     });
@@ -2863,7 +2883,7 @@
     const r = readings[site.id];
     if(!r || r.curr === "" || r.curr === undefined) return null;
     const prevVal = getPrevValueForMonth(site, monthKey);
-    const usage = computeEffectiveCurr(prevVal, r.curr) - prevVal;
+    const usage = computeEffectiveCurr(prevVal, r.curr, meterMaxFor(site)) - prevVal;
     return isNaN(usage) ? null : usage;
   }
 

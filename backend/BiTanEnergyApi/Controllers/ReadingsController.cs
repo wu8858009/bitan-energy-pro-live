@@ -34,6 +34,7 @@ public class ReadingsController : ControllerBase
     {
         SiteId = siteId,
         Curr = r?.CurrentValue,
+        PrevOverride = r?.PrevOverride,
         Photos = r?.Photos.OrderBy(p => p.UploadedAt)
             .Select(p => new PhotoDto { Id = p.Id, Url = $"/api/photos/{p.Id}" })
             .ToList() ?? new List<PhotoDto>()
@@ -88,6 +89,7 @@ public class ReadingsController : ControllerBase
             SiteId = r.SiteId,
             MonthKey = r.MonthKey,
             Curr = r.CurrentValue,
+            PrevOverride = r.PrevOverride,
             Photos = r.Photos.OrderBy(p => p.UploadedAt)
                 .Select(p => new PhotoDto { Id = p.Id, Url = $"/api/photos/{p.Id}" })
                 .ToList()
@@ -140,6 +142,31 @@ public class ReadingsController : ControllerBase
             .SetOnInsert(r => r.Id, ObjectId.GenerateNewId().ToString())
             .SetOnInsert(r => r.SiteId, siteId)
             .SetOnInsert(r => r.MonthKey, month)
+            .SetOnInsert(r => r.Photos, new List<ReadingPhoto>());
+
+        var reading = await _db.MonthlyReadings.FindOneAndUpdateAsync(filter, update,
+            new FindOneAndUpdateOptions<MonthlyReading> { IsUpsert = true, ReturnDocument = ReturnDocument.After });
+
+        return Ok(ToDto(siteId, reading));
+    }
+
+    // PUT /api/readings/{siteId}/prev-override?month=YYYY-MM — 設定/清除「這個月專屬」的上期覆蓋值
+    // （value=null 清除覆蓋，恢復用上個月的實際讀數或 Site.BasePrev 計算）。只影響這個月自己，
+    // 不會動到上個月實際存的讀數，跟「智慧補正」寫回上個月資料的舊行為刻意分開。
+    [HttpPut("readings/{siteId}/prev-override")]
+    public async Task<ActionResult<ReadingDto>> SetPrevOverride(string siteId, [FromQuery] string month, [FromBody] PrevOverrideRequest req)
+    {
+        if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
+        if (!await CanAccessSiteAsync(siteId)) return Forbid();
+        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit)) return Forbid();
+
+        var filter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
+        var update = Builders<MonthlyReading>.Update
+            .Set(r => r.PrevOverride, req.Value)
+            .SetOnInsert(r => r.Id, ObjectId.GenerateNewId().ToString())
+            .SetOnInsert(r => r.SiteId, siteId)
+            .SetOnInsert(r => r.MonthKey, month)
+            .SetOnInsert(r => r.UpdatedAt, DateTime.UtcNow)
             .SetOnInsert(r => r.Photos, new List<ReadingPhoto>());
 
         var reading = await _db.MonthlyReadings.FindOneAndUpdateAsync(filter, update,

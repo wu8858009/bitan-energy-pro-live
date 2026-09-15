@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.18">
+<meta name="app-build" content="4.19">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.18</span>
+    <span class="pro-badge">PRO v4.19</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.18 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.19 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1953,7 +1953,11 @@
   function siteSummaryForGroup(g){
     const matches = sites.filter(s=>s.group===g);
     if(!matches.length) return "尚無站點";
-    const names = matches.map(s=>s.location || s.site).filter(Boolean);
+    // 站點名稱＋地點，跟首頁卡片上實際顯示的內容一致，不是只重複門市代號本身
+    const names = matches.map(s=>{
+      const label = s.site || "未命名站點";
+      return s.location ? `${label}（${s.location}）` : label;
+    });
     const shown = names.slice(0,2).join("、");
     return names.length > 2 ? `${shown} 等${names.length}筆` : shown;
   }

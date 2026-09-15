@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.11">
+<meta name="app-build" content="4.12">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -660,7 +660,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.11</span>
+    <span class="pro-badge">PRO v4.12</span>
   </div>
 
   <div class="control-panel">
@@ -853,7 +853,7 @@
       <div class="menu-section-title">系統設定</div>
       <button type="button" class="menu-item" id="mSettingsBtn">
         <span class="mi-ic">⚙️</span>
-        <span class="mi-label">設定<span class="mi-sub">費用單價、每月預算、深色模式</span></span>
+        <span class="mi-label">設定<span class="mi-sub" id="mSettingsSub">費用單價、每月預算、深色模式</span></span>
         <span class="mi-chev">›</span>
       </button>
     </div>
@@ -889,7 +889,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.11 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.12 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1720,6 +1720,7 @@
     document.getElementById("dataSecuritySection").hidden = !isAdmin;
     document.getElementById("dataBackupSection").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;
+    document.getElementById("mSettingsSub").textContent = isAdmin ? "費用單價、每月預算、深色模式" : "深色模式";
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

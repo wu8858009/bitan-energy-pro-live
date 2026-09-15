@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.12">
+<meta name="app-build" content="4.13">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -660,7 +660,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.12</span>
+    <span class="pro-badge">PRO v4.13</span>
   </div>
 
   <div class="control-panel">
@@ -889,7 +889,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.12 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.13 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -918,7 +918,7 @@
       </div>
     </div>
 
-    <div class="menu-section" style="margin-bottom:0;">
+    <div class="menu-section">
       <div class="menu-section-title">顯示設定</div>
       <button type="button" class="menu-item" id="mDarkToggle">
         <span class="mi-ic">🌙</span>
@@ -927,9 +927,44 @@
       </button>
     </div>
 
+    <div class="menu-section" style="margin-bottom:0;">
+      <div class="menu-section-title">帳號安全</div>
+      <button type="button" class="menu-item" id="mChangePasswordBtn">
+        <span class="mi-ic">🔑</span>
+        <span class="mi-label">修改密碼<span class="mi-sub">變更自己的登入密碼</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn-cancel" id="settingsCloseBtn">關閉</button>
     </div>
+  </div>
+</div>
+
+<!-- 修改我的密碼（所有角色皆可用） -->
+<div class="overlay" id="changePasswordOverlay">
+  <div class="sheet">
+    <h2>修改密碼</h2>
+    <div class="login-error" id="changePasswordError"></div>
+    <form id="changePasswordForm">
+      <div class="form-group">
+        <label>目前密碼</label>
+        <input type="password" id="cp_current" autocomplete="current-password" required>
+      </div>
+      <div class="form-group">
+        <label>新密碼</label>
+        <input type="password" id="cp_new" placeholder="至少 6 個字元" autocomplete="new-password" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>確認新密碼</label>
+        <input type="password" id="cp_confirm" autocomplete="new-password" required>
+      </div>
+      <div class="sheet-actions">
+        <button type="button" class="btn-cancel" id="changePasswordCancelBtn">取消</button>
+        <button type="submit" class="btn-confirm" id="changePasswordSaveBtn">儲存</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -1707,6 +1742,62 @@
   });
   document.getElementById("settingsCloseBtn").addEventListener("click", ()=>settingsOverlay.classList.remove("open"));
   settingsOverlay.addEventListener("click", e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove("open"); });
+
+  // ---- 修改我的密碼（任何角色皆可用）----
+  const changePasswordOverlay = document.getElementById("changePasswordOverlay");
+  const changePasswordError = document.getElementById("changePasswordError");
+  function closeChangePasswordOverlay(){
+    changePasswordOverlay.classList.remove("open");
+    document.getElementById("changePasswordForm").reset();
+    changePasswordError.classList.remove("show");
+  }
+  document.getElementById("mChangePasswordBtn").addEventListener("click", ()=>{
+    settingsOverlay.classList.remove("open");
+    changePasswordError.classList.remove("show");
+    changePasswordOverlay.classList.add("open");
+    document.getElementById("cp_current").focus();
+  });
+  document.getElementById("changePasswordCancelBtn").addEventListener("click", ()=>{
+    closeChangePasswordOverlay();
+    settingsOverlay.classList.add("open");
+  });
+  changePasswordOverlay.addEventListener("click", e=>{
+    if(e.target===changePasswordOverlay){ closeChangePasswordOverlay(); settingsOverlay.classList.add("open"); }
+  });
+  document.getElementById("changePasswordForm").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const currentPassword = document.getElementById("cp_current").value;
+    const newPassword = document.getElementById("cp_new").value;
+    const confirmPassword = document.getElementById("cp_confirm").value;
+    const btn = document.getElementById("changePasswordSaveBtn");
+    changePasswordError.classList.remove("show");
+
+    if(newPassword.length < 6){
+      changePasswordError.textContent = "新密碼至少需要 6 個字元";
+      changePasswordError.classList.add("show");
+      return;
+    }
+    if(newPassword !== confirmPassword){
+      changePasswordError.textContent = "兩次輸入的新密碼不一致";
+      changePasswordError.classList.add("show");
+      return;
+    }
+
+    btn.disabled = true;
+    try{
+      await apiFetch("/auth/change-password", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({currentPassword, newPassword})
+      });
+      closeChangePasswordOverlay();
+      showToast("密碼已更新，下次登入請用新密碼");
+    }catch(err){
+      changePasswordError.textContent = err.message || "修改失敗";
+      changePasswordError.classList.add("show");
+    }finally{
+      btn.disabled = false;
+    }
+  });
 
   // ---- 帳號管理（僅 Admin 角色看得到、打得進去） ----
   const accountsOverlay = document.getElementById("accountsOverlay");

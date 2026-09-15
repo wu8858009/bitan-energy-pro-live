@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.25">
+<meta name="app-build" content="4.26">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -669,7 +669,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.25</span>
+    <span class="pro-badge">PRO v4.26</span>
   </div>
 
   <div class="control-panel">
@@ -727,8 +727,7 @@
     <h2 id="sheetTitle">新增站點</h2>
     <div class="form-group">
       <label>群組 / 客戶名稱（門市）</label>
-      <input type="text" id="f_group" placeholder="例：吞吞吐吐">
-      <select id="f_group_select" hidden></select>
+      <select id="f_group_select"></select>
     </div>
     <div class="form-group">
       <label>站點名稱</label>
@@ -903,7 +902,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.25 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.26 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1734,26 +1733,21 @@
   // ---- Modal ----
   const overlay = document.getElementById("overlay");
 
-  // 一般使用者只能在自己被指派的門市底下新增/修改站點，群組欄位改成只能選、不能自由輸入；
-  // 管理員不受限，維持自由輸入。
+  // 群組（門市）欄位一律改成從「門市管理」正式登記的清單裡選，不能自由輸入文字——
+  // 避免手打出跟門市清單對不起來的孤兒群組名稱。一般使用者只能選自己被指派的門市；
+  // 管理員可以選全部門市。
   function syncGroupFieldMode(currentValue){
-    const input = document.getElementById("f_group");
     const select = document.getElementById("f_group_select");
-    if(currentUserRole === "User"){
-      select.innerHTML = currentUserAssignedGroups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
-      select.value = (currentValue && currentUserAssignedGroups.includes(currentValue)) ? currentValue : (currentUserAssignedGroups[0] || "");
-      input.hidden = true;
-      select.hidden = false;
+    const options = currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames;
+    if(options.length === 0){
+      select.innerHTML = `<option value="">尚無門市，請先到「設定 → 門市管理」新增</option>`;
     }else{
-      input.value = currentValue || "";
-      input.hidden = false;
-      select.hidden = true;
+      select.innerHTML = options.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+      select.value = (currentValue && options.includes(currentValue)) ? currentValue : options[0];
     }
   }
   function getGroupFieldValue(){
-    return currentUserRole === "User"
-      ? document.getElementById("f_group_select").value
-      : document.getElementById("f_group").value.trim();
+    return document.getElementById("f_group_select").value;
   }
 
   function openAddSheet(){
@@ -1763,6 +1757,10 @@
     }
     if(currentUserRole === "User" && currentUserAssignedGroups.length === 0){
       showToast("你尚未被指派任何門市，請聯絡管理員設定後再新增站點");
+      return;
+    }
+    if(currentUserRole === "Admin" && adminKnownStoreNames.length === 0){
+      showToast("尚未建立任何門市，請先到「設定 → 門市管理」新增");
       return;
     }
     editingSiteId = null;

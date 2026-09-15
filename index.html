@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.14">
+<meta name="app-build" content="4.15">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -660,7 +660,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.14</span>
+    <span class="pro-badge">PRO v4.15</span>
   </div>
 
   <div class="control-panel">
@@ -889,7 +889,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.14 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.15 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -900,22 +900,11 @@
 
     <div class="menu-section" id="priceSettingsSection">
       <div class="menu-section-title">費用與預算設定</div>
-      <div class="form-group">
-        <label>水單價（NT$ / 度）</label>
-        <input type="number" id="setPriceWater" placeholder="0" inputmode="decimal" min="0" step="0.1">
-      </div>
-      <div class="form-group">
-        <label>電單價（NT$ / 度）</label>
-        <input type="number" id="setPriceElec" placeholder="0" inputmode="decimal" min="0" step="0.1">
-      </div>
-      <div class="form-group">
-        <label>瓦斯單價（NT$ / 度）</label>
-        <input type="number" id="setPriceGas" placeholder="0" inputmode="decimal" min="0" step="0.1">
-      </div>
-      <div class="form-group" style="margin-bottom:0;">
-        <label>每月預算（NT$，選填）</label>
-        <input type="number" id="setBudget" placeholder="0" inputmode="decimal" min="0" step="1">
-      </div>
+      <button type="button" class="menu-item" id="mPriceSettingsBtn">
+        <span class="mi-ic">💰</span>
+        <span class="mi-label">費用與預算<span class="mi-sub">設定水電瓦斯單價與每月預算</span></span>
+        <span class="mi-chev">›</span>
+      </button>
     </div>
 
     <div class="menu-section">
@@ -938,6 +927,32 @@
 
     <div class="sheet-actions">
       <button class="btn-cancel" id="settingsCloseBtn">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 費用與預算設定（僅 Admin 角色可見） -->
+<div class="overlay" id="priceSettingsOverlay">
+  <div class="sheet">
+    <h2>費用與預算</h2>
+    <div class="form-group">
+      <label>水單價（NT$ / 度）</label>
+      <input type="number" id="setPriceWater" placeholder="0" inputmode="decimal" min="0" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>電單價（NT$ / 度）</label>
+      <input type="number" id="setPriceElec" placeholder="0" inputmode="decimal" min="0" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>瓦斯單價（NT$ / 度）</label>
+      <input type="number" id="setPriceGas" placeholder="0" inputmode="decimal" min="0" step="0.1">
+    </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label>每月預算（NT$，選填）</label>
+      <input type="number" id="setBudget" placeholder="0" inputmode="decimal" min="0" step="1">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="priceSettingsCloseBtn">關閉</button>
     </div>
   </div>
 </div>
@@ -1736,11 +1751,25 @@
   const settingsOverlay = document.getElementById("settingsOverlay");
   document.getElementById("mSettingsBtn").addEventListener("click", ()=>{
     menuOverlay.classList.remove("open");
-    syncSettingsUI();
     syncDarkToggleUI();
     settingsOverlay.classList.add("open");
   });
   document.getElementById("settingsCloseBtn").addEventListener("click", ()=>settingsOverlay.classList.remove("open"));
+
+  // ---- 費用與預算設定（彈跳視窗，從設定裡的按鈕點進去）----
+  const priceSettingsOverlay = document.getElementById("priceSettingsOverlay");
+  document.getElementById("mPriceSettingsBtn").addEventListener("click", ()=>{
+    settingsOverlay.classList.remove("open");
+    syncSettingsUI();
+    priceSettingsOverlay.classList.add("open");
+  });
+  document.getElementById("priceSettingsCloseBtn").addEventListener("click", ()=>{
+    priceSettingsOverlay.classList.remove("open");
+    settingsOverlay.classList.add("open");
+  });
+  priceSettingsOverlay.addEventListener("click", e=>{
+    if(e.target===priceSettingsOverlay){ priceSettingsOverlay.classList.remove("open"); settingsOverlay.classList.add("open"); }
+  });
   settingsOverlay.addEventListener("click", e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove("open"); });
 
   // ---- 修改我的密碼（任何角色皆可用）----

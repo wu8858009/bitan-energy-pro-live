@@ -95,8 +95,9 @@ public class ReadingsController : ControllerBase
         return Ok(result);
     }
 
-    // DELETE /api/readings?month=YYYY-MM — 清除單一月份「自己看得到的站點」的讀數與照片，站點本身保留
+    // DELETE /api/readings?month=YYYY-MM — 清除單一月份的讀數與照片，站點本身保留（限管理員，跟前端選單一致）
     [HttpDelete("readings")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteMonth([FromQuery] string month)
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });

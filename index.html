@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.8">
+<meta name="app-build" content="4.9">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -657,7 +657,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.8</span>
+    <span class="pro-badge">PRO v4.9</span>
   </div>
 
   <div class="control-panel">
@@ -855,7 +855,7 @@
       </button>
     </div>
 
-    <div class="menu-section">
+    <div class="menu-section" id="dataSecuritySection">
       <div class="menu-section-title">資料安全</div>
       <button type="button" class="menu-item danger" id="mClearMonth">
         <span class="mi-ic">🗑️</span>
@@ -886,7 +886,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.8 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.9 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1712,7 +1712,9 @@
   let editingAccountId = null;
 
   function applyRoleUI(){
-    document.getElementById("mAccountsBtn").hidden = currentUserRole !== "Admin";
+    const isAdmin = currentUserRole === "Admin";
+    document.getElementById("mAccountsBtn").hidden = !isAdmin;
+    document.getElementById("dataSecuritySection").hidden = !isAdmin;
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

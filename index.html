@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.6">
+<meta name="app-build" content="4.7">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -651,7 +651,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.6</span>
+    <span class="pro-badge">PRO v4.7</span>
   </div>
 
   <div class="control-panel">
@@ -880,7 +880,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.6 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.7 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2912,8 +2912,15 @@
   // ---- 登入畫面 ----
   const loginOverlayEl = document.getElementById("loginOverlay");
   const loginErrorEl = document.getElementById("loginError");
+  const LAST_USERNAME_KEY = "bitan_last_username_v1";
   function showLoginOverlay(){
+    const savedUsername = localStorage.getItem(LAST_USERNAME_KEY) || "";
+    const usernameInput = document.getElementById("loginUsername");
+    usernameInput.value = savedUsername;
     loginOverlayEl.classList.add("open");
+    // 帳號已經記住了，游標直接跳到密碼欄，不用使用者自己點
+    if(savedUsername) document.getElementById("loginPassword").focus();
+    else usernameInput.focus();
   }
   function hideLoginOverlay(){
     loginOverlayEl.classList.remove("open");
@@ -2952,6 +2959,7 @@
     btn.disabled = true;
     try{
       const me = await apiLogin(username, password);
+      localStorage.setItem(LAST_USERNAME_KEY, username);
       currentUserRole = me.role;
       currentUserAssignedGroups = me.assignedGroups || [];
       applyRoleUI();

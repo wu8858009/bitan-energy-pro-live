@@ -14,18 +14,25 @@ public static class StoreBackfill
         var groupNames = await db.Sites.Distinct(s => s.Group, FilterDefinition<Site>.Empty).ToListAsync();
         foreach (var name in groupNames)
         {
-            if (string.IsNullOrWhiteSpace(name)) continue;
-            var exists = await db.Stores.Find(s => s.Name == name).AnyAsync();
-            if (exists) continue;
+            await EnsureStoreExistsAsync(db, name);
+        }
+    }
 
-            try
-            {
-                await db.Stores.InsertOneAsync(new Store { Id = ObjectId.GenerateNewId().ToString(), Name = name });
-            }
-            catch (MongoWriteException)
-            {
-                // 罕見的併發情況：另一個啟動中的執行個體剛好同時插入了同名門市，忽略即可。
-            }
+    // 新增/修改站點時，如果打的群組名稱還沒有對應的門市紀錄，就地補上一筆，
+    // 這樣門市清單（帳號指派、首頁篩選）永遠跟站點實際在用的群組同步，不用等下次重啟。
+    public static async Task EnsureStoreExistsAsync(MongoContext db, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var exists = await db.Stores.Find(s => s.Name == name).AnyAsync();
+        if (exists) return;
+
+        try
+        {
+            await db.Stores.InsertOneAsync(new Store { Id = ObjectId.GenerateNewId().ToString(), Name = name });
+        }
+        catch (MongoWriteException)
+        {
+            // 罕見的併發情況：幾乎同時有另一個請求剛好插入了同名門市，忽略即可。
         }
     }
 }

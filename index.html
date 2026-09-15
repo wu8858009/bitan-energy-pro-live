@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.10">
+<meta name="app-build" content="4.11">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -660,7 +660,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.10</span>
+    <span class="pro-badge">PRO v4.11</span>
   </div>
 
   <div class="control-panel">
@@ -889,7 +889,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.10 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.11 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -898,7 +898,7 @@
   <div class="sheet">
     <h2>設定</h2>
 
-    <div class="menu-section">
+    <div class="menu-section" id="priceSettingsSection">
       <div class="menu-section-title">費用與預算設定</div>
       <div class="form-group">
         <label>水單價（NT$ / 度）</label>
@@ -1719,6 +1719,7 @@
     document.getElementById("mAccountsBtn").hidden = !isAdmin;
     document.getElementById("dataSecuritySection").hidden = !isAdmin;
     document.getElementById("dataBackupSection").hidden = !isAdmin;
+    document.getElementById("priceSettingsSection").hidden = !isAdmin;
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.22">
+<meta name="app-build" content="4.23">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -666,7 +666,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.22</span>
+    <span class="pro-badge">PRO v4.23</span>
   </div>
 
   <div class="control-panel">
@@ -900,7 +900,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.22 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.23 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1192,6 +1192,15 @@
   let currentUserRole = null;
   let currentUserAssignedGroups = [];
   let currentUserPermissionLevel = "Full";
+  // Admin 看得到所有門市（含還沒有站點的空門市），跟一般使用者只看自己被指派的門市不同來源
+  let adminKnownStoreNames = [];
+  async function refreshAdminKnownStoreNames(){
+    if(currentUserRole !== "Admin") return;
+    try{
+      const stores = await apiFetch("/stores").then(r=>r.json());
+      adminKnownStoreNames = stores.map(s=>s.name);
+    }catch(e){ /* 首頁篩選選單是輔助功能，讀不到就靜默略過 */ }
+  }
 
   // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
   const API_BASE = "/api";
@@ -1393,7 +1402,7 @@
     // 門市數量以「帳號被指派管理的門市」為準，不是只看目前有沒有站點——
     // 剛建立、還沒有站點的空門市也要算進去，不然篩選選單會忽隱忽現。
     const siteGroups = sites.map(s=>s.group||"未分類");
-    const assignedGroups = currentUserRole === "User" ? currentUserAssignedGroups : [];
+    const assignedGroups = currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames;
     const groups = [...new Set([...siteGroups, ...assignedGroups])].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
     if(groups.length <= 1){
       wrap.hidden = true;
@@ -1952,8 +1961,9 @@
       storeFormOverlay.classList.remove("open");
       await loadStoresList();
       storesOverlay.classList.add("open");
-      // 門市名稱可能連帶改了現有站點的群組，重新整理首頁資料
+      // 門市名稱可能連帶改了現有站點的群組，重新整理首頁資料與門市篩選選單
       await loadSites();
+      await refreshAdminKnownStoreNames();
       render();
     }catch(e){
       storeFormError.textContent = e.message || "儲存失敗";
@@ -1969,6 +1979,8 @@
         await apiFetch("/stores/"+store.id, {method:"DELETE"});
         showToast("門市已刪除");
         await loadStoresList();
+        await refreshAdminKnownStoreNames();
+        render();
       }catch(e){
         showToast(e.message || "刪除失敗");
       }
@@ -3394,6 +3406,7 @@
     try{
       await loadSites();
       await loadAllReadings();
+      await refreshAdminKnownStoreNames();
       render();
     }catch(e){
       showToast(e.message || "載入資料失敗，請重新整理頁面");

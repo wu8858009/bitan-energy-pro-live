@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.7">
+<meta name="app-build" content="4.8">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -280,6 +280,12 @@
   }
   .login-error.show{display:block;}
   body.dark-mode .login-error{background:#2a1815; color:#ff9d8a;}
+  .login-remember{
+    display:flex; align-items:center; gap:8px; margin:-4px 0 18px; font-size:13.5px;
+    font-weight:700; color:var(--ink-soft); cursor:pointer; user-select:none;
+  }
+  .login-remember input{width:16px; height:16px; margin:0; accent-color:var(--navy-900);}
+  body.dark-mode .login-remember{color:var(--ink-soft);}
 
   .toast{
     position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(20px);
@@ -651,7 +657,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.7</span>
+    <span class="pro-badge">PRO v4.8</span>
   </div>
 
   <div class="control-panel">
@@ -880,7 +886,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.7 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.8 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1040,13 +1046,17 @@
         <label>帳號</label>
         <input type="text" id="loginUsername" autocomplete="username" required>
       </div>
-      <div class="form-group" style="margin-bottom:20px;">
+      <div class="form-group">
         <label>密碼</label>
         <div class="pwd-field">
           <input type="password" id="loginPassword" autocomplete="current-password" required>
           <button type="button" class="pwd-toggle" id="loginPasswordToggle" aria-label="顯示密碼" title="顯示密碼">👁</button>
         </div>
       </div>
+      <label class="login-remember">
+        <input type="checkbox" id="loginRemember">
+        記住帳號
+      </label>
       <div class="sheet-actions">
         <button type="submit" class="btn-confirm" id="loginSubmitBtn" style="width:100%;">登入</button>
       </div>
@@ -2917,6 +2927,7 @@
     const savedUsername = localStorage.getItem(LAST_USERNAME_KEY) || "";
     const usernameInput = document.getElementById("loginUsername");
     usernameInput.value = savedUsername;
+    document.getElementById("loginRemember").checked = !!savedUsername;
     loginOverlayEl.classList.add("open");
     // 帳號已經記住了，游標直接跳到密碼欄，不用使用者自己點
     if(savedUsername) document.getElementById("loginPassword").focus();
@@ -2959,7 +2970,11 @@
     btn.disabled = true;
     try{
       const me = await apiLogin(username, password);
-      localStorage.setItem(LAST_USERNAME_KEY, username);
+      if(document.getElementById("loginRemember").checked){
+        localStorage.setItem(LAST_USERNAME_KEY, username);
+      }else{
+        localStorage.removeItem(LAST_USERNAME_KEY);
+      }
       currentUserRole = me.role;
       currentUserAssignedGroups = me.assignedGroups || [];
       applyRoleUI();

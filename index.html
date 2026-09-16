@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.45">
+<meta name="app-build" content="4.46">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -121,10 +121,13 @@
 
   .search-wrap{position:relative; margin-bottom:12px;}
   .search-input{
-    width:100%; background:#fff; border:none; border-radius:14px;
-    padding:15px 50px 15px 46px; font-size:16px; color:var(--ink);
+    width:100%; background:#fff; border:2px solid transparent; border-radius:14px;
+    padding:13px 48px 13px 44px; font-size:16px; color:var(--ink);
   }
   .search-input::placeholder{color:#9aa3b2;}
+  /* 搜尋框裡有內容時反白提示，讓使用者一眼看出目前有套用搜尋篩選 */
+  .search-input.has-value{background:#eaf2ff; border-color:var(--blue-tag); font-weight:700;}
+  body.dark-mode .search-input.has-value{background:#16233d; border-color:var(--blue-tag); color:#fff;}
   .search-icon{position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:18px; opacity:.55;}
   .search-scan-btn{
     position:absolute; right:8px; top:50%; transform:translateY(-50%);
@@ -739,7 +742,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.45</span>
+      <span class="pro-badge">PRO v4.46</span>
     </div>
 
     <div class="control-panel">
@@ -946,7 +949,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.45 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.46 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1667,7 +1670,9 @@
     populateHomeGroupFilter();
     const list = document.getElementById("cardList");
     const readings = loadReadings(currentMonthKey);
-    const q = document.getElementById("searchBox").value.trim().toLowerCase();
+    const searchBoxEl = document.getElementById("searchBox");
+    const q = searchBoxEl.value.trim().toLowerCase();
+    searchBoxEl.classList.toggle("has-value", q !== "");
 
     let filtered = sites.filter(s=>{
       if(currentFilter !== "all" && s.type !== currentFilter) return false;

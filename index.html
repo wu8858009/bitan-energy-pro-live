@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.48">
+<meta name="app-build" content="4.49">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -742,7 +742,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.48</span>
+      <span class="pro-badge">PRO v4.49</span>
     </div>
 
     <div class="control-panel">
@@ -949,7 +949,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.48 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.49 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3655,11 +3655,12 @@
     if(e.target.id === "scannerOverlay") closeScanner();
   });
 
-  // ---- 實體條碼掃描器（USB/藍牙鍵盤模式）：偵測到就自動帶入搜尋框 ----
+  // ---- 實體條碼掃描器（USB/藍牙鍵盤模式）：偵測到就自動帶入對應輸入框 ----
   // 這類掃描器會直接「模擬打字」，用極快的速度連續送出字元、最後送一個 Enter。
   // 靠這個打字速度（比人手動打字快很多）辨識，跟一般使用者打字區分開來；
-  // 只在目前沒有任何輸入框被聚焦時才攔截並導向搜尋框——如果使用者本來就點在某個
-  // 欄位裡（例如錶號欄位）掃描，維持讓它照原本瀏覽器行為直接打進那個欄位。
+  // 只在目前沒有任何輸入框被聚焦時才攔截——如果使用者本來就點在某個欄位裡掃描，
+  // 維持讓它照原本瀏覽器行為直接打進那個欄位。預設帶入首頁搜尋框；但如果目前
+  // 正開著「新增/修改站點」視窗，改帶入該視窗的「錶號」欄位，比較符合當下情境。
   (function(){
     const FAST_KEY_GAP_MS = 50;
     const MIN_SCAN_LENGTH = 3;
@@ -3676,9 +3677,10 @@
 
       if(e.key === "Enter"){
         if(buffer.length >= MIN_SCAN_LENGTH){
-          const searchBox = document.getElementById("searchBox");
-          searchBox.value = buffer;
-          searchBox.dispatchEvent(new Event("input", {bubbles:true}));
+          const targetId = overlay.classList.contains("open") ? "f_meterno" : "searchBox";
+          const targetInput = document.getElementById(targetId);
+          targetInput.value = buffer;
+          targetInput.dispatchEvent(new Event("input", {bubbles:true}));
           showToast("已偵測掃描器輸入：" + buffer);
         }
         buffer = "";

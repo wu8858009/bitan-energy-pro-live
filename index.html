@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.49">
+<meta name="app-build" content="4.50">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -742,7 +742,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.49</span>
+      <span class="pro-badge">PRO v4.50</span>
     </div>
 
     <div class="control-panel">
@@ -949,7 +949,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.49 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.50 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3656,40 +3656,59 @@
   });
 
   // ---- 實體條碼掃描器（USB/藍牙鍵盤模式）：偵測到就自動帶入對應輸入框 ----
-  // 這類掃描器會直接「模擬打字」，用極快的速度連續送出字元、最後送一個 Enter。
-  // 靠這個打字速度（比人手動打字快很多）辨識，跟一般使用者打字區分開來；
+  // 這類掃描器會直接「模擬打字」，用極快的速度連續送出字元。大多數機型結尾會送一個
+  // Enter（或 Tab），但也有機型設定成不送結尾鍵——所以除了 Enter/Tab 立即觸發，
+  // 也用「連續快速輸入後、短暫停頓」當作備援觸發條件，不管掃描器有沒有送結尾鍵都能抓到。
   // 只在目前沒有任何輸入框被聚焦時才攔截——如果使用者本來就點在某個欄位裡掃描，
   // 維持讓它照原本瀏覽器行為直接打進那個欄位。預設帶入首頁搜尋框；但如果目前
   // 正開著「新增/修改站點」視窗，改帶入該視窗的「錶號」欄位，比較符合當下情境。
   (function(){
     const FAST_KEY_GAP_MS = 50;
     const MIN_SCAN_LENGTH = 3;
+    const FLUSH_IDLE_MS = 120;
+    // 掃描器輸出大寫字母/符號時，跟實體鍵盤一樣會先送修飾鍵（例如 Shift）再送字元本身——
+    // 這些純修飾鍵事件不能被當成「特殊鍵」清空緩衝區，不然錶號只要含大寫字母就永遠抓不到。
+    const IGNORE_KEYS = new Set(["Shift","Control","Alt","Meta","CapsLock","AltGraph"]);
     let buffer = "";
     let lastKeyTime = 0;
+    let flushTimer = null;
+
+    function flushBuffer(){
+      clearTimeout(flushTimer);
+      flushTimer = null;
+      if(buffer.length >= MIN_SCAN_LENGTH){
+        const targetId = overlay.classList.contains("open") ? "f_meterno" : "searchBox";
+        const targetInput = document.getElementById(targetId);
+        if(targetInput){
+          targetInput.value = buffer;
+          targetInput.dispatchEvent(new Event("input", {bubbles:true}));
+          showToast("已偵測掃描器輸入：" + buffer);
+        }
+      }
+      buffer = "";
+    }
+
     document.addEventListener("keydown", e=>{
       const active = document.activeElement;
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
-      if(isTyping){ buffer = ""; return; }
+      if(isTyping){ buffer = ""; clearTimeout(flushTimer); return; }
 
       const now = Date.now();
       const gap = now - lastKeyTime;
       lastKeyTime = now;
 
-      if(e.key === "Enter"){
-        if(buffer.length >= MIN_SCAN_LENGTH){
-          const targetId = overlay.classList.contains("open") ? "f_meterno" : "searchBox";
-          const targetInput = document.getElementById(targetId);
-          targetInput.value = buffer;
-          targetInput.dispatchEvent(new Event("input", {bubbles:true}));
-          showToast("已偵測掃描器輸入：" + buffer);
-        }
-        buffer = "";
+      if(e.key === "Enter" || e.key === "Tab"){
+        flushBuffer();
         return;
       }
+      if(IGNORE_KEYS.has(e.key)) return;
       if(e.key.length === 1){
         buffer = (gap > FAST_KEY_GAP_MS) ? e.key : buffer + e.key;
+        clearTimeout(flushTimer);
+        flushTimer = setTimeout(flushBuffer, FLUSH_IDLE_MS);
       }else{
         buffer = "";
+        clearTimeout(flushTimer);
       }
     });
   })();

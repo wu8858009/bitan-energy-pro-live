@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.42">
+<meta name="app-build" content="4.43">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -58,11 +58,18 @@
   /* 內容比視窗矮時（例如桌面版 App 開大視窗、站點很少），確保深色背景還是能鋪滿整個視窗，
      不會在下方露出瀏覽器/WebView2 預設的白底 */
   html{min-height:100%;}
-  body{padding-bottom:86px; min-height:100vh;}
-  /* 任一彈跳視窗開啟時鎖住背景捲動。避免用 position:fixed 鎖 body——動態切換 body 的
-     position 曾在桌面版 WebView2 上讓 .bottomnav 的 fixed 定位失效（滑動時跟著頁面移動），
-     改用單純的 overflow:hidden，雖然無法完全避免 iOS 的橡皮筋回彈但穩定性高很多。 */
-  body.modal-open{overflow:hidden;}
+  /* App shell：body 本身完全不捲動，真正會捲動的只有中間 .content-outer 這一塊。
+     導覽列因此永遠是版面裡「排版出來」的一塊，不需要 position:fixed 去追蹤捲動位置，
+     從根本避免某些內嵌瀏覽器（桌面版 WebView2）在捲動時 fixed 元件重繪跟不上、視覺上
+     跟著內容一起移動的問題。100dvh 有支援才用（正確處理手機瀏覽器動態網址列），
+     沒有就退回 100vh。 */
+  body{
+    display:grid; grid-template-columns:1fr; grid-template-rows:auto 1fr auto;
+    grid-template-areas:"topbar" "content" "nav";
+    height:100vh; height:100dvh; overflow:hidden;
+  }
+  /* 任一彈跳視窗開啟時，連中間內容區也鎖住捲動，避免滑到彈跳視窗後面 */
+  body.modal-open .content-outer{overflow:hidden;}
   input,button,select{font-family:inherit;}
   button{cursor:pointer;}
   /* 保證 hidden 屬性一定生效，不被 .menu-item 等元件自帶的 display:flex 蓋掉
@@ -71,10 +78,11 @@
 
   /* ===== Header ===== */
   .topbar{
+    grid-area:topbar;
     --tb-pad:18px;
     background:linear-gradient(160deg,var(--navy-950),var(--navy-900) 60%,var(--navy-800));
     padding:14px var(--tb-pad) 0 var(--tb-pad);
-    position:sticky; top:0; z-index:50;
+    z-index:50;
     box-shadow:0 6px 18px rgba(8,21,39,.25);
   }
   .statusline{display:flex; justify-content:space-between; align-items:center; color:#fff; font-size:13px; opacity:.55; padding-bottom:4px;}
@@ -154,7 +162,7 @@
   .topbar-inner{max-width:960px; margin:0 auto; width:100%;}
 
   /* ===== Content ===== */
-  .content-outer{width:100%;}
+  .content-outer{grid-area:content; width:100%; overflow-y:auto; min-height:0; -webkit-overflow-scrolling:touch;}
   .content{padding:16px 14px 8px; max-width:960px; margin:0 auto;}
   .empty-state{text-align:center; padding:60px 20px; color:var(--ink-soft); grid-column:1/-1;}
   .empty-state .emoji{font-size:44px; margin-bottom:10px;}
@@ -256,14 +264,13 @@
   .card-actions button.danger{color:var(--danger);}
 
   /* ===== Bottom nav ===== */
+  /* 不再用 position:fixed——現在是 App shell 版面裡固定排在最後一列的一般區塊，
+     本來就永遠貼在畫面最下方，不需要、也不會受捲動影響。 */
   .bottomnav{
-    position:fixed; left:0; right:0; bottom:0; z-index:60;
+    grid-area:nav; z-index:60;
     background:#fff; border-top:1px solid var(--line);
     padding:8px 0 calc(8px + env(safe-area-inset-bottom));
     box-shadow:0 -4px 14px rgba(20,30,60,.06);
-    /* 強制獨立成一個 GPU 合成層，避免某些內嵌瀏覽器（如桌面版 WebView2）
-       在捲動時來不及重繪 fixed 元件，導致導覽列視覺上跟著內容一起移動 */
-    transform:translateZ(0); will-change:transform;
   }
   .bottomnav-inner{
     display:grid; grid-template-columns:repeat(7,1fr);
@@ -643,7 +650,6 @@
 
   /* --- sm/md: 平板直式，卡片開始雙欄 --- */
   @media (min-width:700px){
-    body{padding-bottom:78px;}
     .content{padding:20px 24px 12px;}
     #cardList{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; align-content:start;}
     .meter-card{margin-bottom:0;}
@@ -662,10 +668,14 @@
     .search-input{padding:16px 18px 16px 48px; font-size:15px;}
     .summary-item .val{font-size:24px;}
 
-    /* 寬螢幕（含桌面版 App 預設視窗大小）不適合手機式貼底導覽，改成左側直式 */
-    body{padding-bottom:0; padding-left:96px;}
+    /* 寬螢幕（含桌面版 App 預設視窗大小）不適合手機式貼底導覽，改成左側直式：
+       改變 body 的 grid 版面配置——標題列還是橫跨頂端整寬，下面才左右分成
+       導覽列（96px）+ 內容區（其餘空間）左右並排 */
+    body{
+      grid-template-columns:96px 1fr; grid-template-rows:auto 1fr;
+      grid-template-areas:"topbar topbar" "nav content";
+    }
     .bottomnav{
-      left:0; right:auto; top:0; bottom:0; width:96px;
       border-top:none; border-right:1px solid var(--line);
       box-shadow:4px 0 14px rgba(20,30,60,.06);
       padding:24px 0;
@@ -720,7 +730,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.42</span>
+    <span class="pro-badge">PRO v4.43</span>
   </div>
 
   <div class="control-panel">
@@ -925,7 +935,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.42 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.43 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.52">
+<meta name="app-build" content="4.53">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -750,7 +750,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.52</span>
+      <span class="pro-badge">PRO v4.53</span>
     </div>
 
     <div class="control-panel">
@@ -957,7 +957,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.52 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.53 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1210,6 +1210,7 @@
     <div id="qrCodeCanvas" style="display:flex; justify-content:center; margin-bottom:20px; background:#fff; padding:16px; border-radius:14px;"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" id="qrCloseBtn">關閉</button>
+      <button class="btn-confirm" id="qrDownloadBtn">📥 下載</button>
     </div>
   </div>
 </div>
@@ -1531,6 +1532,37 @@
   document.getElementById("qrCloseBtn").addEventListener("click", closeQrCode);
   document.getElementById("qrCodeOverlay").addEventListener("click", e=>{
     if(e.target.id === "qrCodeOverlay") closeQrCode();
+  });
+  // 下載：把 QR Code 圖案跟店名合成成一張圖（跟實體貼紙標籤一樣的排版：QR 在上、文字在下）
+  document.getElementById("qrDownloadBtn").addEventListener("click", ()=>{
+    const qrCanvas = document.querySelector("#qrCodeCanvas canvas");
+    if(!qrCanvas){
+      showToast("QR Code 尚未產生完成，請稍後再試");
+      return;
+    }
+    const label = document.getElementById("qrSiteTitle").textContent.trim();
+    const padding = 24;
+    const qrSize = qrCanvas.width;
+    const fontSize = 28;
+    const textBlockHeight = label ? fontSize + 20 : 0;
+    const out = document.createElement("canvas");
+    out.width = qrSize + padding * 2;
+    out.height = qrSize + padding * 2 + textBlockHeight;
+    const ctx = out.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(qrCanvas, padding, padding, qrSize, qrSize);
+    if(label){
+      ctx.fillStyle = "#111";
+      ctx.font = `bold ${fontSize}px -apple-system, "PingFang TC", "Noto Sans TC", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, out.width/2, qrSize + padding + textBlockHeight/2, out.width - padding);
+    }
+    const a = document.createElement("a");
+    a.href = out.toDataURL("image/png");
+    a.download = (label || "meter") + "_QRCode.png";
+    a.click();
   });
 
   // ---- 自訂確認彈窗（取代原生 confirm，避免在受限預覽環境被封鎖） ----

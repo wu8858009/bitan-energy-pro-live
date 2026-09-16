@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.43">
+<meta name="app-build" content="4.44">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -58,14 +58,14 @@
   /* 內容比視窗矮時（例如桌面版 App 開大視窗、站點很少），確保深色背景還是能鋪滿整個視窗，
      不會在下方露出瀏覽器/WebView2 預設的白底 */
   html{min-height:100%;}
-  /* App shell：body 本身完全不捲動，真正會捲動的只有中間 .content-outer 這一塊。
-     導覽列因此永遠是版面裡「排版出來」的一塊，不需要 position:fixed 去追蹤捲動位置，
-     從根本避免某些內嵌瀏覽器（桌面版 WebView2）在捲動時 fixed 元件重繪跟不上、視覺上
-     跟著內容一起移動的問題。100dvh 有支援才用（正確處理手機瀏覽器動態網址列），
-     沒有就退回 100vh。 */
+  /* App shell：body 本身完全不捲動，真正會捲動的只有中間 .content-outer 這一塊
+     （標題列現在也在裡面，會隨內容一起捲動、不會固定）。導覽列則是版面裡固定
+     排版出來的一塊，不需要 position:fixed 去追蹤捲動位置，從根本避免某些內嵌
+     瀏覽器（桌面版 WebView2）在捲動時 fixed 元件重繪跟不上、視覺上跟著內容一起
+     移動的問題。100dvh 有支援才用（正確處理手機瀏覽器動態網址列），沒有就退回 100vh。 */
   body{
-    display:grid; grid-template-columns:1fr; grid-template-rows:auto 1fr auto;
-    grid-template-areas:"topbar" "content" "nav";
+    display:grid; grid-template-columns:1fr; grid-template-rows:1fr auto;
+    grid-template-areas:"content" "nav";
     height:100vh; height:100dvh; overflow:hidden;
   }
   /* 任一彈跳視窗開啟時，連中間內容區也鎖住捲動，避免滑到彈跳視窗後面 */
@@ -77,12 +77,11 @@
   [hidden]{display:none !important;}
 
   /* ===== Header ===== */
+  /* 標題列現在是 .content-outer 捲動內容的一部分，會隨頁面捲動而滑走，不再固定 */
   .topbar{
-    grid-area:topbar;
     --tb-pad:18px;
     background:linear-gradient(160deg,var(--navy-950),var(--navy-900) 60%,var(--navy-800));
     padding:14px var(--tb-pad) 0 var(--tb-pad);
-    z-index:50;
     box-shadow:0 6px 18px rgba(8,21,39,.25);
   }
   .statusline{display:flex; justify-content:space-between; align-items:center; color:#fff; font-size:13px; opacity:.55; padding-bottom:4px;}
@@ -669,11 +668,10 @@
     .summary-item .val{font-size:24px;}
 
     /* 寬螢幕（含桌面版 App 預設視窗大小）不適合手機式貼底導覽，改成左側直式：
-       改變 body 的 grid 版面配置——標題列還是橫跨頂端整寬，下面才左右分成
-       導覽列（96px）+ 內容區（其餘空間）左右並排 */
+       導覽列（96px）+ 內容區（其餘空間，標題列也在裡面隨頁面捲動）左右並排 */
     body{
-      grid-template-columns:96px 1fr; grid-template-rows:auto 1fr;
-      grid-template-areas:"topbar topbar" "nav content";
+      grid-template-columns:96px 1fr; grid-template-rows:1fr;
+      grid-template-areas:"nav content";
     }
     .bottomnav{
       border-top:none; border-right:1px solid var(--line);
@@ -726,48 +724,48 @@
 </head>
 <body>
 
-<div class="topbar">
- <div class="topbar-inner">
-  <div class="title-row">
-    <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.43</span>
-  </div>
-
-  <div class="control-panel">
-    <div class="month-select">
-      <span>📅</span>
-      <select id="monthSelect"></select>
-    </div>
-    <div class="divider-v"></div>
-    <div class="date-group">
-      <button type="button" class="date-input" id="recordDateBtn">
-        <span id="recordDateText">2026/07/02</span>
-        <span class="cal-ic">📅</span>
-      </button>
-    </div>
-    <div class="divider-v" id="homeGroupFilterDivider" hidden></div>
-    <div class="month-select" id="homeGroupFilterWrap" hidden>
-      <span>🏬</span>
-      <select id="homeGroupFilterSelect"></select>
-    </div>
-  </div>
-
-  <div class="search-wrap">
-    <span class="search-icon">🔍</span>
-    <input class="search-input" id="searchBox" placeholder="搜尋店名、編號 or 位置...">
-    <button type="button" class="search-scan-btn" id="scanBarcodeBtn" title="掃描錶號條碼" aria-label="掃描錶號條碼">📷</button>
-  </div>
-
-  <div class="summary-bar">
-    <div class="summary-item water"><div class="lbl">水(度)</div><div class="val" id="sumWater">0.0</div></div>
-    <div class="summary-item elec"><div class="lbl">電(度)</div><div class="val" id="sumElec">0</div></div>
-    <div class="summary-item gas"><div class="lbl">瓦斯(度)</div><div class="val" id="sumGas">0.0</div></div>
-    <button class="save-btn" id="saveAllBtn">💾 儲存</button>
-  </div>
- </div>
-</div>
-
 <div class="content-outer">
+  <div class="topbar">
+   <div class="topbar-inner">
+    <div class="title-row">
+      <h1>碧潭能源管理系統</h1>
+      <span class="pro-badge">PRO v4.44</span>
+    </div>
+
+    <div class="control-panel">
+      <div class="month-select">
+        <span>📅</span>
+        <select id="monthSelect"></select>
+      </div>
+      <div class="divider-v"></div>
+      <div class="date-group">
+        <button type="button" class="date-input" id="recordDateBtn">
+          <span id="recordDateText">2026/07/02</span>
+          <span class="cal-ic">📅</span>
+        </button>
+      </div>
+      <div class="divider-v" id="homeGroupFilterDivider" hidden></div>
+      <div class="month-select" id="homeGroupFilterWrap" hidden>
+        <span>🏬</span>
+        <select id="homeGroupFilterSelect"></select>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchBox" placeholder="搜尋店名、編號 or 位置...">
+      <button type="button" class="search-scan-btn" id="scanBarcodeBtn" title="掃描錶號條碼" aria-label="掃描錶號條碼">📷</button>
+    </div>
+
+    <div class="summary-bar">
+      <div class="summary-item water"><div class="lbl">水(度)</div><div class="val" id="sumWater">0.0</div></div>
+      <div class="summary-item elec"><div class="lbl">電(度)</div><div class="val" id="sumElec">0</div></div>
+      <div class="summary-item gas"><div class="lbl">瓦斯(度)</div><div class="val" id="sumGas">0.0</div></div>
+      <button class="save-btn" id="saveAllBtn">💾 儲存</button>
+    </div>
+   </div>
+  </div>
+
   <div class="content" id="cardList"></div>
 </div>
 
@@ -935,7 +933,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.43 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.44 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

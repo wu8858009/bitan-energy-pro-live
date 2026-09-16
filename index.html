@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.51">
+<meta name="app-build" content="4.52">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -29,6 +29,8 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <!-- 條碼掃描（搜尋框旁的相機掃描功能用），支援 1D/2D 各種條碼格式、跨瀏覽器（含 iOS Safari） -->
 <script src="https://unpkg.com/@zxing/library@latest" defer></script>
+<!-- 產生錶號 QR Code 用（跟上面條碼「掃描」是相反方向：這個是印出來貼在實體電錶上，方便下次直接掃） -->
+<script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <style>
   :root{
     --navy-950:#081527;
@@ -212,6 +214,12 @@
   .type-elec .type-badge{background:var(--elec); color:#3a2900;}
   .type-gas .type-badge{background:var(--gas);}
   .type-badge .swap{opacity:.85; font-size:11px; cursor:pointer;}
+  .qr-btn{
+    display:inline-flex; align-items:center; gap:4px; vertical-align:top;
+    background:#eef0f4; color:#5c6478; border:none; border-radius:8px;
+    font-size:11px; font-weight:700; padding:5px 9px; margin-left:6px; margin-bottom:5px; cursor:pointer;
+  }
+  body.dark-mode .qr-btn{background:#1a2337; color:var(--ink-soft);}
 
   .site-name{font-size:18px; font-weight:800; margin:0 0 2px; overflow-wrap:break-word; word-break:break-word;}
   .site-meta{color:var(--ink-soft); font-size:12.5px; margin-bottom:10px; display:flex; align-items:flex-start; gap:4px; overflow-wrap:break-word; word-break:break-word;}
@@ -742,7 +750,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.51</span>
+      <span class="pro-badge">PRO v4.52</span>
     </div>
 
     <div class="control-panel">
@@ -949,7 +957,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.51 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.52 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1192,6 +1200,18 @@
 <div class="overlay" id="photoViewerOverlay" style="z-index:250; align-items:center; overflow:hidden;">
   <img id="photoViewerImg" alt="照片放大檢視" style="max-width:92vw; max-height:86vh; border-radius:10px; object-fit:contain; touch-action:none; user-select:none; cursor:grab;">
   <button type="button" id="photoViewerCloseBtn" aria-label="關閉" style="position:absolute; top:16px; right:16px; width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,.15); color:#fff; font-size:22px; line-height:1; cursor:pointer;">✕</button>
+</div>
+
+<!-- 錶號 QR Code：印出來貼在實體電錶上，下次可直接用掃描器掃回錶號 -->
+<div class="overlay" id="qrCodeOverlay">
+  <div class="sheet" style="max-width:340px; text-align:center;">
+    <h2 id="qrSiteTitle">站點名稱</h2>
+    <div style="color:var(--ink-soft); font-size:13.5px; margin-bottom:16px;" id="qrMeterNoText">錶號：--</div>
+    <div id="qrCodeCanvas" style="display:flex; justify-content:center; margin-bottom:20px; background:#fff; padding:16px; border-radius:14px;"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="qrCloseBtn">關閉</button>
+    </div>
+  </div>
 </div>
 
 <!-- 上期讀數智慧補正（翻轉感知） -->
@@ -1481,6 +1501,38 @@
   // 雙擊／雙點兩下：重設回原始大小
   pvImg.addEventListener("dblclick", ()=>pvResetTransform(true));
 
+  // ---- 錶號 QR Code：印出來貼在實體電錶上，下次可直接用掃描器掃回錶號 ----
+  let qrCodeInstance = null;
+  function openQrCode(siteId){
+    const site = sites.find(s=>s.id===siteId);
+    if(!site) return;
+    if(!site.meterNo){
+      showToast("這個站點還沒有設定錶號");
+      return;
+    }
+    if(typeof QRCode === "undefined"){
+      showToast("QR Code 產生功能載入失敗，請檢查網路連線後重新整理頁面");
+      return;
+    }
+    document.getElementById("qrSiteTitle").textContent = site.site || "";
+    document.getElementById("qrMeterNoText").textContent = "錶號：" + site.meterNo;
+    if(!qrCodeInstance){
+      qrCodeInstance = new QRCode(document.getElementById("qrCodeCanvas"), {
+        text: site.meterNo, width:220, height:220, correctLevel: QRCode.CorrectLevel.M
+      });
+    }else{
+      qrCodeInstance.makeCode(site.meterNo);
+    }
+    document.getElementById("qrCodeOverlay").classList.add("open");
+  }
+  function closeQrCode(){
+    document.getElementById("qrCodeOverlay").classList.remove("open");
+  }
+  document.getElementById("qrCloseBtn").addEventListener("click", closeQrCode);
+  document.getElementById("qrCodeOverlay").addEventListener("click", e=>{
+    if(e.target.id === "qrCodeOverlay") closeQrCode();
+  });
+
   // ---- 自訂確認彈窗（取代原生 confirm，避免在受限預覽環境被封鎖） ----
   let pendingConfirmCallback = null;
   function showConfirm(message, onConfirm, opts){
@@ -1719,6 +1771,7 @@
           </div>
         </div>
         <div class="type-badge" ${canEdit() ? `data-swap="${site.id}"` : ""}>${meta.icon} ${meta.label} ${canEdit() ? '<span class="swap">🔄</span>' : ""}</div>
+        <button type="button" class="qr-btn" data-qr="${site.id}" title="顯示錶號 QR Code">🔳 QR</button>
         <div class="site-name">${escapeHtml(site.site)}</div>
         <div class="site-meta">📍 ${escapeHtml(site.location)} ｜ 錶:${escapeHtml(site.meterNo||"--")}</div>
 
@@ -1803,6 +1856,9 @@
     });
     list.querySelectorAll("[data-swap]").forEach(btn=>{
       btn.addEventListener("click", (e)=>{ e.stopPropagation(); openTypePicker(btn.dataset.swap); });
+    });
+    list.querySelectorAll("[data-qr]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{ openQrCode(btn.dataset.qr); });
     });
     list.querySelectorAll("[data-photo]").forEach(btn=>{
       btn.addEventListener("click", ()=>{

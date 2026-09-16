@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.41">
+<meta name="app-build" content="4.42">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -59,8 +59,10 @@
      不會在下方露出瀏覽器/WebView2 預設的白底 */
   html{min-height:100%;}
   body{padding-bottom:86px; min-height:100vh;}
-  /* 任一彈跳視窗開啟時鎖住背景捲動；top 由 JS 動態設成負的原捲動位置，關閉時再還原 */
-  body.modal-open{position:fixed; left:0; right:0; overflow:hidden;}
+  /* 任一彈跳視窗開啟時鎖住背景捲動。避免用 position:fixed 鎖 body——動態切換 body 的
+     position 曾在桌面版 WebView2 上讓 .bottomnav 的 fixed 定位失效（滑動時跟著頁面移動），
+     改用單純的 overflow:hidden，雖然無法完全避免 iOS 的橡皮筋回彈但穩定性高很多。 */
+  body.modal-open{overflow:hidden;}
   input,button,select{font-family:inherit;}
   button{cursor:pointer;}
   /* 保證 hidden 屬性一定生效，不被 .menu-item 等元件自帶的 display:flex 蓋掉
@@ -259,6 +261,9 @@
     background:#fff; border-top:1px solid var(--line);
     padding:8px 0 calc(8px + env(safe-area-inset-bottom));
     box-shadow:0 -4px 14px rgba(20,30,60,.06);
+    /* 強制獨立成一個 GPU 合成層，避免某些內嵌瀏覽器（如桌面版 WebView2）
+       在捲動時來不及重繪 fixed 元件，導致導覽列視覺上跟著內容一起移動 */
+    transform:translateZ(0); will-change:transform;
   }
   .bottomnav-inner{
     display:grid; grid-template-columns:repeat(7,1fr);
@@ -715,7 +720,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.41</span>
+    <span class="pro-badge">PRO v4.42</span>
   </div>
 
   <div class="control-panel">
@@ -920,7 +925,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.41 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.42 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3885,25 +3890,11 @@
   }
   // ---- 任一彈跳視窗開啟時鎖住背景主頁捲動，避免使用者滑到彈跳視窗後面的內容 ----
   (function(){
-    let savedScrollY = 0;
     function isAnyOverlayOpen(){
       return !!document.querySelector(".overlay.open");
     }
-    function lockBodyScroll(){
-      if(document.body.classList.contains("modal-open")) return;
-      savedScrollY = window.scrollY || window.pageYOffset || 0;
-      document.body.classList.add("modal-open");
-      document.body.style.top = "-" + savedScrollY + "px";
-    }
-    function unlockBodyScroll(){
-      if(!document.body.classList.contains("modal-open")) return;
-      document.body.classList.remove("modal-open");
-      document.body.style.top = "";
-      window.scrollTo(0, savedScrollY);
-    }
     function syncBodyScrollLock(){
-      if(isAnyOverlayOpen()) lockBodyScroll();
-      else unlockBodyScroll();
+      document.body.classList.toggle("modal-open", isAnyOverlayOpen());
     }
     const observer = new MutationObserver(syncBodyScrollLock);
     document.querySelectorAll(".overlay").forEach(el=>{

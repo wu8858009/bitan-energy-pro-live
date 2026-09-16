@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.46">
+<meta name="app-build" content="4.47">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -742,7 +742,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.46</span>
+      <span class="pro-badge">PRO v4.47</span>
     </div>
 
     <div class="control-panel">
@@ -949,7 +949,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.46 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.47 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3596,7 +3596,32 @@
       return;
     }
     try{
-      barcodeReader = new ZXing.BrowserMultiFormatReader();
+      // 明確列出 zxing-js 支援的所有格式（預設不帶 hints 時只會嘗試較常見的子集），
+      // 盡量對齊實體條碼掃描器常見的識讀碼制清單（1D 條碼 + QR/Data Matrix/PDF417/
+      // Aztec/MaxiCode 等 2D 碼、GS1 DataBar／RSS 系列）。zxing-js 沒有實作的少數
+      // 冷門碼制（如 MSI/Plessey、Code 32 義大利藥碼、中國郵政碼、IATA 碼）無法支援。
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.QR_CODE,
+        ZXing.BarcodeFormat.DATA_MATRIX,
+        ZXing.BarcodeFormat.PDF_417,
+        ZXing.BarcodeFormat.AZTEC,
+        ZXing.BarcodeFormat.MAXICODE,
+        ZXing.BarcodeFormat.RSS_14,
+        ZXing.BarcodeFormat.RSS_EXPANDED,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.UPC_EAN_EXTENSION,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.CODABAR,
+        ZXing.BarcodeFormat.CODE_93,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.ITF,
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      barcodeReader = new ZXing.BrowserMultiFormatReader(hints);
       const videoElem = document.getElementById("scannerVideo");
       await barcodeReader.decodeFromVideoDevice(undefined, videoElem, (result)=>{
         if(result){

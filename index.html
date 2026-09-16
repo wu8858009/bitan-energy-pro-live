@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.44">
+<meta name="app-build" content="4.45">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -133,6 +133,16 @@
     display:flex; align-items:center; justify-content:center;
   }
   body.dark-mode .search-scan-btn{background:#1a2337; color:var(--ink-soft);}
+  /* 表單欄位內嵌的小按鈕（例如錶號欄位的條碼掃描），沿用密碼欄位眼睛按鈕的樣式 */
+  .input-with-icon{position:relative;}
+  .input-with-icon input{padding-right:42px;}
+  .input-icon-btn{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    width:34px; height:34px; border:none; background:transparent; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--ink-soft); cursor:pointer;
+  }
+  .input-icon-btn:hover{background:#eef0f4;}
+  body.dark-mode .input-icon-btn:hover{background:#1a2337;}
 
   /* ===== 條碼掃描視窗 ===== */
   .scanner-sheet{max-width:420px;}
@@ -729,7 +739,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.44</span>
+      <span class="pro-badge">PRO v4.45</span>
     </div>
 
     <div class="control-panel">
@@ -811,7 +821,10 @@
     </div>
     <div class="form-group">
       <label>錶號</label>
-      <input type="text" id="f_meterno" placeholder="例：89676">
+      <div class="input-with-icon">
+        <input type="text" id="f_meterno" placeholder="例：89676">
+        <button type="button" class="input-icon-btn" id="scanMeterNoBtn" title="掃描錶號條碼" aria-label="掃描錶號條碼">📷</button>
+      </div>
     </div>
     <div class="form-group">
       <label>類型</label>
@@ -933,7 +946,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.44 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.45 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3564,9 +3577,12 @@
   // ---- Search ----
   document.getElementById("searchBox").addEventListener("input", render);
 
-  // ---- 條碼掃描（掃到後直接帶入搜尋框，套用既有的搜尋/過濾邏輯）----
+  // ---- 條碼掃描（可重複使用：掃到後帶入指定的輸入框，並觸發它原本的 input 事件，
+  // 讓搜尋框的即時搜尋、錶號欄位的格式過濾等既有邏輯照常套用）----
   let barcodeReader = null;
-  async function openScanner(){
+  let scanTargetInputId = "searchBox";
+  async function openScanner(targetInputId){
+    scanTargetInputId = targetInputId || "searchBox";
     const overlay = document.getElementById("scannerOverlay");
     overlay.classList.add("open");
     if(typeof ZXing === "undefined"){
@@ -3581,9 +3597,12 @@
         if(result){
           const text = result.getText();
           closeScanner();
-          const searchBox = document.getElementById("searchBox");
-          searchBox.value = text;
-          render();
+          const targetInput = document.getElementById(scanTargetInputId);
+          if(targetInput){
+            targetInput.value = text;
+            targetInput.dispatchEvent(new Event("input", {bubbles:true}));
+            targetInput.focus();
+          }
           showToast("已掃描：" + text);
         }
       });
@@ -3599,7 +3618,8 @@
       barcodeReader = null;
     }
   }
-  document.getElementById("scanBarcodeBtn").addEventListener("click", openScanner);
+  document.getElementById("scanBarcodeBtn").addEventListener("click", ()=>openScanner("searchBox"));
+  document.getElementById("scanMeterNoBtn").addEventListener("click", ()=>openScanner("f_meterno"));
   document.getElementById("scannerCloseBtn").addEventListener("click", closeScanner);
   document.getElementById("scannerOverlay").addEventListener("click", e=>{
     if(e.target.id === "scannerOverlay") closeScanner();

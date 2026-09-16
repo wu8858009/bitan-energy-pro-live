@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.38">
+<meta name="app-build" content="4.39">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -406,6 +406,16 @@
   .menu-item.danger{color:var(--danger); background:#fff3f2; border-color:#ffd9d5;}
   .menu-item.danger .mi-ic{filter:none;}
   .menu-item:active{background:#eef0f4;}
+  /* 選單改用格狀排版取代整排列表，同樣的項目數，畫面高度變矮很多，減少滑動 */
+  .menu-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:18px;}
+  .menu-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+    background:#f8f9fb; border:1px solid var(--line); border-radius:12px;
+    padding:14px 4px; font-size:12px; font-weight:700; color:var(--ink); text-align:center;
+  }
+  .menu-tile .mt-ic{font-size:21px; line-height:1;}
+  .menu-tile.danger{color:var(--danger); background:#fff3f2; border-color:#ffd9d5;}
+  .menu-tile:active{background:#eef0f4;}
   .toggle-switch{
     width:42px; height:24px; border-radius:99px; background:#d7dbe5; position:relative; flex:0 0 auto;
     transition:background .15s ease;
@@ -547,6 +557,7 @@
   body.dark-mode .type-picker-opt,
   body.dark-mode .type-choice button,
   body.dark-mode .menu-item,
+  body.dark-mode .menu-tile,
   body.dark-mode .menu-stat{
     background:#1a2337; color:var(--ink); border-color:#2a3550;
   }
@@ -566,7 +577,8 @@
   body.dark-mode .nav-item{color:#5c6684;}
   body.dark-mode .nav-item.active{color:#fff;}
   body.dark-mode .card-actions{border-top-color:#26304a;}
-  body.dark-mode .menu-item.danger{background:#2a1518; border-color:#4a2229; color:#ff8a80;}
+  body.dark-mode .menu-item.danger,
+  body.dark-mode .menu-tile.danger{background:#2a1518; border-color:#4a2229; color:#ff8a80;}
   body.dark-mode .chart-tab{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
   body.dark-mode .chart-tab.active{background:#fff; color:var(--navy-900); border-color:#fff;}
   body.dark-mode .chart-canvas-wrap,
@@ -701,7 +713,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.38</span>
+    <span class="pro-badge">PRO v4.39</span>
   </div>
 
   <div class="control-panel">
@@ -879,75 +891,40 @@
 
     <div class="menu-stats-grid" id="menuStatsGrid"></div>
 
-    <div class="menu-section">
-      <div class="menu-section-title">報表與匯出</div>
-      <button type="button" class="menu-item" id="mExportCsv">
-        <span class="mi-ic">📊</span>
-        <span class="mi-label">匯出本期報表<span class="mi-sub">Excel / CSV 格式，可用試算表開啟</span></span>
-        <span class="mi-chev">›</span>
+    <div class="menu-grid" id="menuGrid">
+      <button type="button" class="menu-tile" id="mExportCsv" title="Excel / CSV 格式，可用試算表開啟">
+        <span class="mt-ic">📊</span><span>匯出報表</span>
       </button>
-      <button type="button" class="menu-item" id="mExportPdf">
-        <span class="mi-ic">🖨️</span>
-        <span class="mi-label">列印 / 匯出 PDF<span class="mi-sub">本期抄錄總表，適合存檔或交接</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile" id="mExportPdf" title="本期抄錄總表，適合存檔或交接">
+        <span class="mt-ic">🖨️</span><span>列印/PDF</span>
       </button>
-    </div>
-
-    <div class="menu-section" id="dataBackupSection">
-      <div class="menu-section-title">資料備份</div>
-      <button type="button" class="menu-item" id="mExportJson">
-        <span class="mi-ic">💾</span>
-        <span class="mi-label">匯出完整備份<span class="mi-sub">包含所有站點與歷史抄錄紀錄</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile" id="mExportJson" title="包含所有站點與歷史抄錄紀錄">
+        <span class="mt-ic">💾</span><span>匯出備份</span>
       </button>
-      <button type="button" class="menu-item" id="mImportJson">
-        <span class="mi-ic">📥</span>
-        <span class="mi-label">匯入備份還原<span class="mi-sub">從先前匯出的檔案還原資料</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile" id="mImportJson" title="從先前匯出的檔案還原資料">
+        <span class="mt-ic">📥</span><span>匯入還原</span>
       </button>
-    </div>
-
-    <div class="menu-section">
-      <div class="menu-section-title">系統設定</div>
-      <button type="button" class="menu-item" id="mSettingsBtn">
-        <span class="mi-ic">⚙️</span>
-        <span class="mi-label">設定<span class="mi-sub" id="mSettingsSub">費用單價、每月預算、深色模式</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile" id="mSettingsBtn" title="費用單價、每月預算、深色模式">
+        <span class="mt-ic">⚙️</span><span>設定</span>
       </button>
-    </div>
-
-    <div class="menu-section" id="dataSecuritySection">
-      <div class="menu-section-title">資料安全</div>
-      <button type="button" class="menu-item danger" id="mClearMonth">
-        <span class="mi-ic">🗑️</span>
-        <span class="mi-label">清除本期抄錄資料<span class="mi-sub">僅清空目前月份的讀數，站點資料保留</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile" id="mAccountsBtn" hidden title="新增／刪除／修改登入帳號（僅管理員可見）">
+        <span class="mt-ic">👤</span><span>帳號管理</span>
       </button>
-      <button type="button" class="menu-item danger" id="mClearAll">
-        <span class="mi-ic">⚠️</span>
-        <span class="mi-label">清除全部資料<span class="mi-sub">站點、所有月份紀錄將全部刪除</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile danger" id="mClearMonth" title="僅清空目前月份的讀數，站點資料保留">
+        <span class="mt-ic">🗑️</span><span>清除本期</span>
       </button>
-    </div>
-
-    <div class="menu-section">
-      <div class="menu-section-title">帳號</div>
-      <button type="button" class="menu-item" id="mAccountsBtn" hidden>
-        <span class="mi-ic">👤</span>
-        <span class="mi-label">帳號管理<span class="mi-sub">新增／刪除／修改登入帳號（僅管理員可見）</span></span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile danger" id="mClearAll" title="站點、所有月份紀錄將全部刪除">
+        <span class="mt-ic">⚠️</span><span>清除全部</span>
       </button>
-      <button type="button" class="menu-item danger" id="mLogout">
-        <span class="mi-ic">🚪</span>
-        <span class="mi-label">登出</span>
-        <span class="mi-chev">›</span>
+      <button type="button" class="menu-tile danger" id="mLogout">
+        <span class="mt-ic">🚪</span><span>登出</span>
       </button>
     </div>
 
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.38 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.39 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2424,13 +2401,12 @@
   function applyRoleUI(){
     const isAdmin = currentUserRole === "Admin";
     document.getElementById("mAccountsBtn").hidden = !isAdmin;
-    document.getElementById("dataSecuritySection").hidden = !isAdmin;
-    document.getElementById("dataBackupSection").hidden = !isAdmin;
+    document.getElementById("mClearMonth").hidden = !isAdmin;
+    document.getElementById("mClearAll").hidden = !isAdmin;
+    document.getElementById("mExportJson").hidden = !isAdmin;
+    document.getElementById("mImportJson").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;
     document.getElementById("storeManagementSection").hidden = !isAdmin;
-    document.getElementById("mSettingsSub").textContent = isAdmin
-      ? "費用單價、每月預算、門市管理、深色模式、修改密碼"
-      : "深色模式、修改密碼";
     document.getElementById("addBtn").hidden = !canEdit();
   }
 

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.50">
+<meta name="app-build" content="4.51">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -742,7 +742,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.50</span>
+      <span class="pro-badge">PRO v4.51</span>
     </div>
 
     <div class="control-panel">
@@ -949,7 +949,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.50 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.51 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3677,12 +3677,27 @@
       clearTimeout(flushTimer);
       flushTimer = null;
       if(buffer.length >= MIN_SCAN_LENGTH){
-        const targetId = overlay.classList.contains("open") ? "f_meterno" : "searchBox";
-        const targetInput = document.getElementById(targetId);
-        if(targetInput){
-          targetInput.value = buffer;
+        const scanned = buffer;
+        showToast("已偵測掃描器輸入：" + scanned);
+        if(overlay.classList.contains("open")){
+          const targetInput = document.getElementById("f_meterno");
+          targetInput.value = scanned;
           targetInput.dispatchEvent(new Event("input", {bubbles:true}));
-          showToast("已偵測掃描器輸入：" + buffer);
+        }else{
+          const searchBoxEl = document.getElementById("searchBox");
+          searchBoxEl.value = scanned;
+          searchBoxEl.dispatchEvent(new Event("input", {bubbles:true}));
+          // 主頁上找不到既有站點的錶號跟這個條碼相符，直接開新增站點視窗，並把掃到的
+          // 號碼先帶入「錶號」欄位，省得使用者要再掃一次。帳號沒有新增權限的話，
+          // openAddSheet() 自己會顯示提示訊息、不會真的開啟，這裡不用另外處理。
+          const scannedKey = scanned.trim().toLowerCase();
+          const alreadyExists = sites.some(s=>(s.meterNo||"").trim().toLowerCase() === scannedKey);
+          if(!alreadyExists){
+            openAddSheet();
+            if(overlay.classList.contains("open")){
+              document.getElementById("f_meterno").value = scanned;
+            }
+          }
         }
       }
       buffer = "";

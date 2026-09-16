@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.33">
+<meta name="app-build" content="4.34">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -235,8 +235,16 @@
     padding:12px; text-align:center; color:#5c6478; font-weight:700; font-size:13.5px;
     display:flex; align-items:center; justify-content:center; gap:6px;
   }
-  .photo-preview{margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;}
-  .photo-preview img{width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line);}
+  .photo-preview{margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;}
+  .photo-thumb{position:relative; width:56px; height:56px;}
+  .photo-thumb img{width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line); display:block; cursor:pointer;}
+  .photo-thumb .photo-action{
+    position:absolute; width:20px; height:20px; border-radius:50%; border:2px solid #fff;
+    display:flex; align-items:center; justify-content:center; font-size:11px; line-height:1;
+    cursor:pointer; color:#fff; padding:0; box-shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+  .photo-thumb .photo-del{top:-7px; right:-7px; background:#e5484d;}
+  .photo-thumb .photo-replace{bottom:-7px; right:-7px; background:#2f6fed;}
 
   .card-actions{display:flex; justify-content:flex-end; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
   .card-actions button{background:none; border:none; color:var(--ink-soft); font-size:12px; font-weight:700; display:flex; align-items:center; gap:4px;}
@@ -692,7 +700,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.33</span>
+    <span class="pro-badge">PRO v4.34</span>
   </div>
 
   <div class="control-panel">
@@ -936,7 +944,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.33 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.34 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1158,6 +1166,7 @@
 </div>
 
 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="replacePhotoInput" accept="image/*" capture="environment" style="display:none">
 <div class="toast" id="toast"></div>
 
 <!-- 照片放大檢視 -->
@@ -1723,11 +1732,30 @@
       if(r.photos && r.photos.length){
         const pv = card.querySelector(`#photoPreview_${site.id}`);
         r.photos.forEach(photo=>{
+          const thumb = document.createElement("div");
+          thumb.className = "photo-thumb";
           const img = document.createElement("img");
           img.src = photo.url;
-          img.style.cursor = "pointer";
           img.addEventListener("click", ()=>openPhotoViewer(photo.url));
-          pv.appendChild(img);
+          thumb.appendChild(img);
+          if(canDelete()){
+            const replaceBtn = document.createElement("button");
+            replaceBtn.type = "button";
+            replaceBtn.className = "photo-action photo-replace";
+            replaceBtn.title = "更換照片";
+            replaceBtn.textContent = "🔄";
+            replaceBtn.addEventListener("click", e=>{ e.stopPropagation(); startReplacePhoto(site.id, photo.id); });
+            thumb.appendChild(replaceBtn);
+
+            const delBtn = document.createElement("button");
+            delBtn.type = "button";
+            delBtn.className = "photo-action photo-del";
+            delBtn.title = "刪除照片";
+            delBtn.textContent = "✕";
+            delBtn.addEventListener("click", e=>{ e.stopPropagation(); confirmDeletePhoto(site.id, photo.id); });
+            thumb.appendChild(delBtn);
+          }
+          pv.appendChild(thumb);
         });
       }
     });
@@ -3607,6 +3635,59 @@
       showToast("照片已附加");
     }catch(err){
       showToast(err.message || "照片儲存失敗");
+    }
+  });
+
+  // ---- 刪除 / 更換單張照片（僅完整權限可操作，與後端 DeletePhoto 要求一致）----
+  function confirmDeletePhoto(siteId, photoId){
+    showConfirm("確定要刪除這張照片嗎？", async ()=>{
+      try{
+        await apiFetch("/photos/"+photoId, {method:"DELETE"});
+        const readings = loadReadings(currentMonthKey);
+        if(readings[siteId] && readings[siteId].photos){
+          readings[siteId].photos = readings[siteId].photos.filter(p=>p.id!==photoId);
+        }
+        render();
+        showToast("照片已刪除");
+      }catch(e){
+        showToast(e.message || "刪除失敗");
+      }
+    }, {title:"刪除照片", okLabel:"刪除", danger:true});
+  }
+
+  let replaceTargetSiteId = null, replaceTargetPhotoId = null;
+  function startReplacePhoto(siteId, photoId){
+    replaceTargetSiteId = siteId;
+    replaceTargetPhotoId = photoId;
+    document.getElementById("replacePhotoInput").click();
+  }
+  document.getElementById("replacePhotoInput").addEventListener("change", async e=>{
+    const file = e.target.files[0];
+    const siteId = replaceTargetSiteId;
+    const oldPhotoId = replaceTargetPhotoId;
+    e.target.value = "";
+    replaceTargetSiteId = null; replaceTargetPhotoId = null;
+    if(!file || !siteId || !oldPhotoId) return;
+    showToast("照片更換中…");
+    try{
+      const fd = new FormData();
+      fd.append("file", file);
+      // 先上傳新照片、成功後才刪除舊照片——萬一刪除失敗，也不會平白弄丟原本的照片。
+      const photo = await apiFetch("/readings/"+siteId+"/photos?month="+encodeURIComponent(currentMonthKey), {
+        method:"POST", body: fd
+      }).then(r=>r.json());
+      await apiFetch("/photos/"+oldPhotoId, {method:"DELETE"});
+      const readings = loadReadings(currentMonthKey);
+      if(readings[siteId] && readings[siteId].photos){
+        const idx = readings[siteId].photos.findIndex(p=>p.id===oldPhotoId);
+        const newEntry = {id:photo.id, url:photoUrl(photo.id)};
+        if(idx>=0) readings[siteId].photos.splice(idx, 1, newEntry);
+        else readings[siteId].photos.push(newEntry);
+      }
+      render();
+      showToast("照片已更換");
+    }catch(err){
+      showToast(err.message || "更換失敗");
     }
   });
 

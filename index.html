@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.37">
+<meta name="app-build" content="4.38">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -192,8 +192,8 @@
   .site-name{font-size:18px; font-weight:800; margin:0 0 2px; overflow-wrap:break-word; word-break:break-word;}
   .site-meta{color:var(--ink-soft); font-size:12.5px; margin-bottom:10px; display:flex; align-items:flex-start; gap:4px; overflow-wrap:break-word; word-break:break-word;}
 
-  .reading-row{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:4px;}
-  .field-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .reading-row{display:grid; grid-template-columns:1fr 1fr; column-gap:9px; row-gap:6px; margin-bottom:4px;}
+  .field-label{display:flex; align-items:center; justify-content:space-between;}
   .field-label span{font-weight:700; font-size:12.5px; color:var(--ink);}
   .lock-btn{
     background:#eef0f4; color:#8a91a3; border:none; border-radius:7px;
@@ -619,7 +619,7 @@
     .save-btn{padding:11px 12px; font-size:13px;}
     .site-name{font-size:19px;}
     .prev-field, .curr-field input{font-size:21px; padding:0 12px;}
-    .reading-row{gap:8px;}
+    .reading-row{column-gap:8px;}
   }
 
   /* --- sm/md: 平板直式，卡片開始雙欄 --- */
@@ -701,7 +701,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.37</span>
+    <span class="pro-badge">PRO v4.38</span>
   </div>
 
   <div class="control-panel">
@@ -947,7 +947,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.37 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.38 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1705,18 +1705,14 @@
         <div class="site-meta">📍 ${escapeHtml(site.location)} ｜ 錶:${escapeHtml(site.meterNo||"--")}</div>
 
         <div class="reading-row">
-          <div>
-            <div class="field-label"><span>上期</span>
-              ${canEdit() ? `<button class="lock-btn" data-unlock="${site.id}">🔄 智慧補正</button>` : ""}
-            </div>
-            <div class="prev-field" id="prevField_${site.id}">${formatNum(prevVal)}</div>
+          <div class="field-label"><span>上期</span>
+            ${canEdit() ? `<button class="lock-btn" data-unlock="${site.id}">🔄 智慧補正</button>` : ""}
           </div>
-          <div>
-            <div class="field-label"><span>本期 (限${site.meterDigits||4}位)</span></div>
-            <div class="curr-field" id="currFieldWrap_${site.id}">
-              <input type="number" inputmode="decimal" maxlength="${site.meterDigits||4}" data-curr="${site.id}"
-                value="${currDisplay!==null && !isNaN(currDisplay) ? currDisplay : ''}" placeholder="輸入讀數" ${canEdit() ? "" : "disabled"}>
-            </div>
+          <div class="field-label"><span>本期 (限${site.meterDigits||4}位)</span></div>
+          <div class="prev-field" id="prevField_${site.id}">${formatNum(prevVal)}</div>
+          <div class="curr-field" id="currFieldWrap_${site.id}">
+            <input type="number" inputmode="decimal" maxlength="${site.meterDigits||4}" data-curr="${site.id}"
+              value="${currDisplay!==null && !isNaN(currDisplay) ? currDisplay : ''}" placeholder="輸入讀數" ${canEdit() ? "" : "disabled"}>
           </div>
         </div>
         <div class="curr-warning" id="currWarning_${site.id}"></div>

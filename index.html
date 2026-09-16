@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.39">
+<meta name="app-build" content="4.40">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -713,7 +713,7 @@
  <div class="topbar-inner">
   <div class="title-row">
     <h1>碧潭能源管理系統</h1>
-    <span class="pro-badge">PRO v4.39</span>
+    <span class="pro-badge">PRO v4.40</span>
   </div>
 
   <div class="control-panel">
@@ -910,12 +910,6 @@
       <button type="button" class="menu-tile" id="mAccountsBtn" hidden title="新增／刪除／修改登入帳號（僅管理員可見）">
         <span class="mt-ic">👤</span><span>帳號管理</span>
       </button>
-      <button type="button" class="menu-tile danger" id="mClearMonth" title="僅清空目前月份的讀數，站點資料保留">
-        <span class="mt-ic">🗑️</span><span>清除本期</span>
-      </button>
-      <button type="button" class="menu-tile danger" id="mClearAll" title="站點、所有月份紀錄將全部刪除">
-        <span class="mt-ic">⚠️</span><span>清除全部</span>
-      </button>
       <button type="button" class="menu-tile danger" id="mLogout">
         <span class="mt-ic">🚪</span><span>登出</span>
       </button>
@@ -924,7 +918,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.39 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.40 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -960,11 +954,25 @@
       </button>
     </div>
 
-    <div class="menu-section" style="margin-bottom:0;">
+    <div class="menu-section">
       <div class="menu-section-title">帳號安全</div>
       <button type="button" class="menu-item" id="mChangePasswordBtn">
         <span class="mi-ic">🔑</span>
         <span class="mi-label">修改密碼<span class="mi-sub">變更自己的登入密碼</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+    </div>
+
+    <div class="menu-section" id="dataSecuritySection" style="margin-bottom:0;">
+      <div class="menu-section-title">資料安全</div>
+      <button type="button" class="menu-item danger" id="mClearMonth">
+        <span class="mi-ic">🗑️</span>
+        <span class="mi-label">清除本期抄錄資料<span class="mi-sub">僅清空目前月份的讀數，站點資料保留</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+      <button type="button" class="menu-item danger" id="mClearAll">
+        <span class="mi-ic">⚠️</span>
+        <span class="mi-label">清除全部資料<span class="mi-sub">站點、所有月份紀錄將全部刪除</span></span>
         <span class="mi-chev">›</span>
       </button>
     </div>
@@ -2401,8 +2409,7 @@
   function applyRoleUI(){
     const isAdmin = currentUserRole === "Admin";
     document.getElementById("mAccountsBtn").hidden = !isAdmin;
-    document.getElementById("mClearMonth").hidden = !isAdmin;
-    document.getElementById("mClearAll").hidden = !isAdmin;
+    document.getElementById("dataSecuritySection").hidden = !isAdmin;
     document.getElementById("mExportJson").hidden = !isAdmin;
     document.getElementById("mImportJson").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;

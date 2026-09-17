@@ -3,6 +3,7 @@ namespace BiTanEnergyApi.Dtos;
 public class AccountDto
 {
     public string Id { get; set; } = "";
+    public string DisplayName { get; set; } = "";
     public string Username { get; set; } = "";
     public string Role { get; set; } = "";
     public List<string> AssignedGroups { get; set; } = new();
@@ -12,6 +13,7 @@ public class AccountDto
 
 public class AccountCreateRequest
 {
+    public string DisplayName { get; set; } = "";
     public string Username { get; set; } = "";
     public string Password { get; set; } = "";
     public string Role { get; set; } = "User"; // "Admin" | "User"
@@ -21,6 +23,7 @@ public class AccountCreateRequest
 
 public class AccountUpdateRequest
 {
+    public string DisplayName { get; set; } = "";
     public string Username { get; set; } = "";
     // 留空表示不修改密碼
     public string? NewPassword { get; set; }

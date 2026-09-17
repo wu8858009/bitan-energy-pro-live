@@ -9,6 +9,9 @@ public class AdminUser
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; } = "";
     public string Username { get; set; } = "";
+    // 給帳號管理列表顯示用的姓名，跟登入用的 Username 分開——列表只顯示這個，不顯示帳號本身。
+    // 舊資料沒有這個欄位時預設空字串，前端會退回顯示 Username。
+    public string DisplayName { get; set; } = "";
     public string PasswordHash { get; set; } = "";
     public string Role { get; set; } = "Admin";
 

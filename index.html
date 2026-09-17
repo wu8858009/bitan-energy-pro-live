@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.68">
+<meta name="app-build" content="4.69">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.68</span>
+      <span class="pro-badge">PRO v4.69</span>
     </div>
 
     <div class="control-panel">
@@ -1003,7 +1003,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.68 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.69 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1164,6 +1164,10 @@
 <div class="overlay" id="accountFormOverlay">
   <div class="sheet">
     <h2 id="accountFormTitle">新增帳號</h2>
+    <div class="form-group">
+      <label>姓名</label>
+      <input type="text" id="af_displayName" placeholder="例：陳小明">
+    </div>
     <div class="form-group">
       <label>帳號名稱</label>
       <input type="text" id="af_username" placeholder="例：admin">
@@ -2753,7 +2757,7 @@
         return `
         <div class="account-row">
           <div class="ar-info">
-            <div class="ar-name">${escapeHtml(a.username)}</div>
+            <div class="ar-name">${escapeHtml(a.displayName || a.username)}</div>
             <div class="ar-role">${roleLabel}${permissionLabel ? "・" + escapeHtml(permissionLabel) : ""} ・ ${groupsLabel}</div>
           </div>
           <div class="ar-actions">
@@ -2825,6 +2829,7 @@
   async function openAccountForm(mode, account){
     editingAccountId = mode === "edit" ? account.id : null;
     document.getElementById("accountFormTitle").textContent = mode === "edit" ? "修改帳號" : "新增帳號";
+    document.getElementById("af_displayName").value = mode === "edit" ? (account.displayName || "") : "";
     document.getElementById("af_username").value = mode === "edit" ? account.username : "";
     document.getElementById("af_password").value = "";
     document.getElementById("af_password").placeholder = mode === "edit" ? "留空表示不修改密碼" : "至少 6 個字元";
@@ -2847,6 +2852,7 @@
   });
 
   document.getElementById("accountFormSaveBtn").addEventListener("click", async ()=>{
+    const displayName = document.getElementById("af_displayName").value.trim();
     const username = document.getElementById("af_username").value.trim();
     const password = document.getElementById("af_password").value;
     const role = document.getElementById("af_role").value;
@@ -2859,14 +2865,14 @@
       if(editingAccountId){
         await apiFetch("/accounts/"+editingAccountId, {
           method:"PUT", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, newPassword: password || null, role, assignedGroups, permissionLevel})
+          body: JSON.stringify({displayName, username, newPassword: password || null, role, assignedGroups, permissionLevel})
         });
         showToast("帳號已更新");
       }else{
         if(!password || password.length < 6){ showToast("密碼至少需要 6 個字元"); btn.disabled = false; return; }
         await apiFetch("/accounts", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({username, password, role, assignedGroups, permissionLevel})
+          body: JSON.stringify({displayName, username, password, role, assignedGroups, permissionLevel})
         });
         showToast("帳號已新增");
       }

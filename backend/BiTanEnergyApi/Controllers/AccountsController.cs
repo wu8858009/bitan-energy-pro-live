@@ -31,6 +31,7 @@ public class AccountsController : ControllerBase
     private static AccountDto ToDto(AdminUser u) => new()
     {
         Id = u.Id,
+        DisplayName = u.DisplayName,
         Username = u.Username,
         Role = u.Role,
         AssignedGroups = u.AssignedGroups,
@@ -63,6 +64,7 @@ public class AccountsController : ControllerBase
         var user = new AdminUser
         {
             Id = ObjectId.GenerateNewId().ToString(),
+            DisplayName = (req.DisplayName ?? "").Trim(),
             Username = req.Username,
             Role = req.Role,
             AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>()),
@@ -86,6 +88,8 @@ public class AccountsController : ControllerBase
 
         var user = await _db.AdminUsers.Find(u => u.Id == id).FirstOrDefaultAsync();
         if (user == null) return NotFound();
+
+        user.DisplayName = (req.DisplayName ?? "").Trim();
 
         if (req.Username != user.Username)
         {

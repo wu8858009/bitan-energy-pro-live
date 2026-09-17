@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.54">
+<meta name="app-build" content="4.55">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -251,6 +251,11 @@
   .curr-field input:focus{border-color:var(--blue-tag); box-shadow:0 0 0 3px rgba(47,123,246,.12);}
   .type-elec .curr-field input:focus{border-color:var(--elec); box-shadow:0 0 0 3px rgba(245,180,0,.15);}
   .type-gas .curr-field input:focus{border-color:var(--gas); box-shadow:0 0 0 3px rgba(255,106,61,.15);}
+  @keyframes scanFocusPulse{
+    0%,100%{box-shadow:0 0 0 3px rgba(47,123,246,.15);}
+    50%{box-shadow:0 0 0 7px rgba(47,123,246,.55);}
+  }
+  .curr-field input.scan-focus-hint{border-color:var(--blue-tag); animation:scanFocusPulse .5s ease-in-out 3;}
   .curr-field.has-error input{border-color:var(--danger); box-shadow:0 0 0 3px rgba(224,72,62,.12);}
   .curr-field.has-caution input{border-color:#e0a02e; box-shadow:0 0 0 3px rgba(224,160,46,.14);}
   .curr-field.has-carry input{border-color:var(--blue-tag); box-shadow:0 0 0 3px rgba(47,123,246,.14);}
@@ -750,7 +755,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.54</span>
+      <span class="pro-badge">PRO v4.55</span>
     </div>
 
     <div class="control-panel">
@@ -957,7 +962,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.54 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.55 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3676,8 +3681,15 @@
   function focusCurrInputForSearch(){
     const inputs = document.querySelectorAll('#cardList [data-curr]');
     if(inputs.length === 1){
-      inputs[0].focus();
-      inputs[0].select();
+      const input = inputs[0];
+      // 手機瀏覽器（尤其 iOS Safari）常常不讓「非使用者手勢直接觸發」的 focus 跳出鍵盤，
+      // 所以先把卡片捲動進畫面，再加一個短暫的外框脈動提示——就算鍵盤沒自動跳出，
+      // 使用者也能一眼看到該點哪個欄位，點一下就能輸入。
+      input.scrollIntoView({behavior:"smooth", block:"center"});
+      input.focus();
+      input.select();
+      input.classList.add("scan-focus-hint");
+      setTimeout(()=>input.classList.remove("scan-focus-hint"), 1600);
     }
   }
 

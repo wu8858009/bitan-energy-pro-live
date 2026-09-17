@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.72">
+<meta name="app-build" content="4.73">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -319,6 +319,8 @@
   .nav-item .ic{font-size:18px;}
   .nav-item.active{color:var(--navy-900);}
   .nav-item.add .ic{background:var(--navy-900); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px;}
+  /* 目前登入人員：手機版貼底橫式導覽列用不到（太窄），只在桌面版左側直式導覽列顯示 */
+  .nav-user-info{display:none;}
 
   /* ===== Modal ===== */
   .overlay{position:fixed; inset:0; background:rgba(8,15,30,.5); z-index:100; display:none; align-items:flex-end; justify-content:center;}
@@ -733,6 +735,18 @@
     .nav-item .ic{font-size:22px;}
     body.dark-mode .bottomnav{border-right-color:#232c40; box-shadow:4px 0 14px rgba(0,0,0,.25);}
 
+    .nav-user-info{
+      display:flex; flex-direction:column; align-items:center; gap:8px;
+      padding:0 8px 20px; margin-bottom:16px; border-bottom:1px solid var(--line);
+      text-align:center;
+    }
+    .nav-user-avatar{
+      width:40px; height:40px; border-radius:50%; background:var(--navy-900); color:#fff;
+      display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:800; flex:0 0 auto;
+    }
+    .nav-user-name{font-size:11.5px; font-weight:800; color:var(--ink); word-break:break-all; line-height:1.3;}
+    body.dark-mode .nav-user-info{border-bottom-color:#2a3550;}
+
     /* 桌面用滑鼠操作時，卡片 hover 有輕微浮起回饋 */
     .meter-card{transition:box-shadow .15s ease, transform .15s ease;}
     .meter-card:hover{box-shadow:0 4px 10px rgba(20,30,60,.08), 0 16px 32px rgba(20,30,60,.08); transform:translateY(-2px);}
@@ -776,7 +790,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.72</span>
+      <span class="pro-badge">PRO v4.73</span>
     </div>
 
     <div class="control-panel">
@@ -817,6 +831,10 @@
 </div>
 
 <div class="bottomnav">
+ <div class="nav-user-info" id="navUserInfo">
+   <div class="nav-user-avatar" id="navUserAvatar">👤</div>
+   <div class="nav-user-name" id="navUserName">--</div>
+ </div>
  <div class="bottomnav-inner">
   <button class="nav-item active" data-filter="all"><span class="ic">📋</span>全部</button>
   <button class="nav-item" data-filter="water"><span class="ic">💧</span>水錶</button>
@@ -1011,7 +1029,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.72 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.73 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2603,6 +2621,7 @@
         method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({displayName})
       });
       currentUserDisplayName = displayName;
+      updateNavUserInfo();
       showToast("姓名已更新");
     }catch(e){
       showToast(e.message || "儲存失敗");
@@ -2902,6 +2921,14 @@
     document.getElementById("storeManagementSection").hidden = !isAdmin;
     document.getElementById("securitySettingsSection").hidden = !isAdmin;
     document.getElementById("addBtn").hidden = !canEdit();
+    updateNavUserInfo();
+  }
+
+  // 桌面版左側直式導覽列最上方顯示目前登入的人員（姓名優先，沒填姓名就退回帳號名稱）
+  function updateNavUserInfo(){
+    const name = currentUserDisplayName || currentUsername || "--";
+    document.getElementById("navUserName").textContent = name;
+    document.getElementById("navUserAvatar").textContent = name.trim().charAt(0).toUpperCase() || "👤";
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

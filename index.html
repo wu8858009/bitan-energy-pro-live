@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.66">
+<meta name="app-build" content="4.67">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.66</span>
+      <span class="pro-badge">PRO v4.67</span>
     </div>
 
     <div class="control-panel">
@@ -1000,7 +1000,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.66 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.67 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -4126,6 +4126,12 @@
         showToast("已偵測掃描器輸入：" + scanned);
         if(overlay.classList.contains("open")){
           const targetInput = document.getElementById("f_meterno");
+          targetInput.value = scanned;
+          targetInput.dispatchEvent(new Event("input", {bubbles:true}));
+        }else if(chartOverlay.classList.contains("open") && chartMode === "daily"){
+          // 圖表彈跳視窗開著「每日趨勢」時，掃描結果直接帶入那裡的錶號搜尋欄，
+          // 而不是首頁搜尋框——不然掃了也看不到效果，因為首頁被圖表視窗蓋住了。
+          const targetInput = document.getElementById("chartDailySiteSearch");
           targetInput.value = scanned;
           targetInput.dispatchEvent(new Event("input", {bubbles:true}));
         }else{

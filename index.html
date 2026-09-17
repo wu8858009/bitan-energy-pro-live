@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.69">
+<meta name="app-build" content="4.70">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.69</span>
+      <span class="pro-badge">PRO v4.70</span>
     </div>
 
     <div class="control-panel">
@@ -960,6 +960,9 @@
         <canvas id="dailyTrendCanvas"></canvas>
       </div>
       <div class="chart-stats-row" id="chartDailyStatsRow"></div>
+
+      <div class="menu-section-title">本月費用試算</div>
+      <div class="chart-cost-box" id="chartDailyCostBox"></div>
     </div>
 
     <div class="sheet-actions">
@@ -1003,7 +1006,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.69 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.70 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3256,6 +3259,7 @@
     const statsRow = document.getElementById("chartDailyStatsRow");
     if(!chartDailySiteId){
       statsRow.innerHTML = "";
+      document.getElementById("chartDailyCostBox").innerHTML = "";
       drawDailyTrendChart([], [], "water");
       return;
     }
@@ -3299,6 +3303,32 @@
       <div class="chart-stat-card"><div class="n">${recorded}</div><div class="l">已記錄天數</div></div>
       <div class="chart-stat-card"><div class="n">${formatNum(totalUsage)}</div><div class="l">相鄰天累計用量</div></div>
       <div class="chart-stat-card"><div class="n">${formatNum(avgUsage)}</div><div class="l">日均用量</div></div>
+    `;
+    renderDailyCostSection(site, totalUsage);
+  }
+
+  // 每日趨勢的費用試算：只有選定站點自己的類型一種價格（不像月度分析涵蓋水/電/瓦斯全部），
+  // 用相鄰天累計用量去乘單價，跟月度試算用的是同一份「選單 → 費用與預算設定」單價
+  function renderDailyCostSection(site, totalUsage){
+    const box = document.getElementById("chartDailyCostBox");
+    const price = appSettings.unitPrice[site.type] || 0;
+    if(price <= 0){
+      box.innerHTML = `<div class="chart-empty">請至選單設定單價以顯示費用試算（選單 → 費用與預算設定）</div>`;
+      return;
+    }
+    const usage = Math.max(0, totalUsage);
+    const cost = usage * price;
+    box.innerHTML = `
+      <div class="cost-row">
+        <span class="cost-dot" style="background:${CHART_COLORS[site.type]}"></span>
+        <span class="cost-label">${CHART_LABELS[site.type]}</span>
+        <span class="cost-usage">${formatNum(usage)}${TYPE_META[site.type].unit} × $${formatNum(price)}</span>
+        <span class="cost-amt">$${formatNum(cost)}</span>
+      </div>
+      <div class="cost-total-row">
+        <span>本月預估費用</span>
+        <span class="cost-total-amt">$${formatNum(cost)}</span>
+      </div>
     `;
   }
 

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.61">
+<meta name="app-build" content="4.62">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -769,7 +769,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.61</span>
+      <span class="pro-badge">PRO v4.62</span>
     </div>
 
     <div class="control-panel">
@@ -976,7 +976,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.61 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.62 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2713,16 +2713,6 @@
   document.getElementById("accountsCloseBtn").addEventListener("click", ()=>accountsOverlay.classList.remove("open"));
   accountsOverlay.addEventListener("click", e=>{ if(e.target===accountsOverlay) accountsOverlay.classList.remove("open"); });
 
-  // 依門市（群組）名稱回推底下站點的實際地點，讓管理員在帳號列表就能確認指派範圍對不對
-  function locationsForGroups(groups){
-    if(!groups || !groups.length) return [];
-    const locs = new Set();
-    sites.forEach(s=>{
-      if(groups.includes(s.group) && s.location && s.location.trim()) locs.add(s.location.trim());
-    });
-    return [...locs];
-  }
-
   async function loadAccountsList(){
     try{
       const accounts = await apiFetch("/accounts").then(r=>r.json());
@@ -2733,14 +2723,11 @@
         const groupsLabel = a.role === "Admin"
           ? "不受門市限制"
           : ((a.assignedGroups && a.assignedGroups.length) ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、") : "尚未指派任何門市");
-        const locations = a.role === "Admin" ? [] : locationsForGroups(a.assignedGroups);
-        const locationsLabel = locations.length ? "地點：" + locations.map(escapeHtml).join("、") : "";
         return `
         <div class="account-row">
           <div class="ar-info">
             <div class="ar-name">${escapeHtml(a.username)}</div>
             <div class="ar-role">${roleLabel}${permissionLabel ? "・" + escapeHtml(permissionLabel) : ""} ・ ${groupsLabel}</div>
-            ${locationsLabel ? `<div class="ar-role">${locationsLabel}</div>` : ""}
           </div>
           <div class="ar-actions">
             <button type="button" data-edit-account="${a.id}">編輯</button>

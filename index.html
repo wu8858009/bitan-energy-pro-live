@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.53">
+<meta name="app-build" content="4.54">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -750,7 +750,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.53</span>
+      <span class="pro-badge">PRO v4.54</span>
     </div>
 
     <div class="control-panel">
@@ -957,7 +957,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.53 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.54 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3670,6 +3670,17 @@
   // ---- Search ----
   document.getElementById("searchBox").addEventListener("input", render);
 
+  // 搜尋（不管是掃描器帶入還是手動輸入）剛好篩出一張卡片時，直接把游標帶到那張卡片的
+  // 「本期」輸入框，讓掃完錶號就能馬上打讀數，不用再另外點一次輸入框。只在掃描流程裡
+  // 主動呼叫（不掛在 render() 本身），避免使用者手動一個字一個字打搜尋時被搶走焦點。
+  function focusCurrInputForSearch(){
+    const inputs = document.querySelectorAll('#cardList [data-curr]');
+    if(inputs.length === 1){
+      inputs[0].focus();
+      inputs[0].select();
+    }
+  }
+
   // ---- 條碼掃描（可重複使用：掃到後帶入指定的輸入框，並觸發它原本的 input 事件，
   // 讓搜尋框的即時搜尋、錶號欄位的格式過濾等既有邏輯照常套用）----
   let barcodeReader = null;
@@ -3719,7 +3730,11 @@
           if(targetInput){
             targetInput.value = text;
             targetInput.dispatchEvent(new Event("input", {bubbles:true}));
-            targetInput.focus();
+            if(scanTargetInputId === "searchBox"){
+              focusCurrInputForSearch();
+            }else{
+              targetInput.focus();
+            }
           }
           showToast("已掃描：" + text);
         }
@@ -3785,6 +3800,8 @@
             if(overlay.classList.contains("open")){
               document.getElementById("f_meterno").value = scanned;
             }
+          }else{
+            focusCurrInputForSearch();
           }
         }
       }

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.60">
+<meta name="app-build" content="4.61">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -769,7 +769,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.60</span>
+      <span class="pro-badge">PRO v4.61</span>
     </div>
 
     <div class="control-panel">
@@ -976,7 +976,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.60 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.61 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1902,10 +1902,10 @@
     }
     wrap.hidden = false;
     divider.hidden = false;
+    // 拿掉「全部門市」選項——一定要選定一個實際的門市，不提供合併檢視全部門市的模式。
     const prev = homeGroupFilter;
-    sel.innerHTML = `<option value="all">全部門市</option>` +
-      groups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
-    homeGroupFilter = groups.includes(prev) ? prev : "all";
+    sel.innerHTML = groups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    homeGroupFilter = groups.includes(prev) ? prev : groups[0];
     sel.value = homeGroupFilter;
   }
   document.getElementById("homeGroupFilterSelect").addEventListener("change", e=>{

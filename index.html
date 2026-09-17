@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.59">
+<meta name="app-build" content="4.60">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -769,7 +769,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.59</span>
+      <span class="pro-badge">PRO v4.60</span>
     </div>
 
     <div class="control-panel">
@@ -976,7 +976,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.59 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.60 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1609,9 +1609,16 @@
     return new Date(y, m, 0).getDate();
   }
   function shiftDateStr(dateStr, deltaDays){
-    const d = new Date(dateStr + "T00:00:00");
-    d.setDate(d.getDate() + deltaDays);
-    return d.toISOString().slice(0, 10);
+    // 注意：不能用 toISOString() 取日期——它會轉成 UTC，在 UTC+8（台灣）會把本地午夜
+    // 往前推一天，導致「前一天」實際算成「前兩天」。全程只用本地時間的 getter/setter，
+    // 完全不經過 UTC 轉換。
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + deltaDays);
+    const yy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
   }
   function dailyUsageText(dateStr, maxVal){
     const val = dailyByDate[dateStr];

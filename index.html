@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.56">
+<meta name="app-build" content="4.57">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -755,7 +755,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.56</span>
+      <span class="pro-badge">PRO v4.57</span>
     </div>
 
     <div class="control-panel">
@@ -962,7 +962,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.56 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.57 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3687,11 +3687,15 @@
     // 捲動完全沒有效果。用 setTimeout 延到下一輪事件迴圈，確保解鎖已經生效。
     setTimeout(()=>{
       const input = inputs[0];
-      // 手機瀏覽器（尤其 iOS Safari）常常不讓「非使用者手勢直接觸發」的 focus 跳出鍵盤，
-      // 所以先把卡片捲動進畫面，再加一個短暫的外框脈動提示——就算鍵盤沒自動跳出，
-      // 使用者也能一眼看到該點哪個欄位，點一下就能輸入。
+      // 手機瀏覽器（尤其行動版 Safari/Chrome）基於安全限制，只有「使用者手指直接點擊」
+      // 觸發的 focus 才會跳出虛擬鍵盤；掃描結果是背景非同步跑完才回來的，不算使用者手勢，
+      // 所以 focus() 通常只會把游標移過去、鍵盤不會自動跳出來——這是瀏覽器層級的限制，
+      // 純前端程式碼無法強制突破。這裡用 click() 多試一次（部分瀏覽器版本對合成點擊
+      // 判定比較寬鬆，偶爾能連帶跳出鍵盤），並保留捲動＋外框脈動當作保底的視覺提示，
+      // 至少讓使用者能一眼看到該點哪裡，點一下就能輸入。
       input.scrollIntoView({behavior:"smooth", block:"center"});
       input.focus();
+      input.click();
       input.select();
       input.classList.add("scan-focus-hint");
       setTimeout(()=>input.classList.remove("scan-focus-hint"), 1600);

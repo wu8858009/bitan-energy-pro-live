@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.65">
+<meta name="app-build" content="4.66">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.65</span>
+      <span class="pro-badge">PRO v4.66</span>
     </div>
 
     <div class="control-panel">
@@ -948,6 +948,9 @@
          的「📅 每日」記錄），跟上面月度分析（整個群組/類型的月度趨勢）是互補的不同角度 -->
     <div id="chartDailyView" hidden>
       <div class="chart-filter-row">
+        <input type="text" class="chart-filter-select" id="chartDailySiteSearch" placeholder="搜尋錶號、站點名稱...">
+      </div>
+      <div class="chart-filter-row">
         <select class="chart-filter-select" id="chartDailySiteSelect"></select>
       </div>
       <div class="chart-canvas-wrap">
@@ -997,7 +1000,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.65 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.66 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3142,6 +3145,7 @@
     syncChartTabsUI();
     syncChartPeriodUI();
     syncChartModeUI();
+    document.getElementById("chartDailySiteSearch").value = "";
     populateChartGroupFilter();
     document.getElementById("trendToggleSwitch").classList.remove("on");
     document.getElementById("yoyToggleSwitch").classList.remove("on");
@@ -3218,13 +3222,21 @@
   }
   function populateChartDailySiteSelect(){
     const sel = document.getElementById("chartDailySiteSelect");
+    const q = document.getElementById("chartDailySiteSearch").value.trim().toLowerCase();
     const prev = chartDailySiteId;
-    sel.innerHTML = sites.map(s=>
-      `<option value="${s.id}">${escapeHtml(s.site)}${s.location ? "（"+escapeHtml(s.location)+"）" : ""}</option>`
-    ).join("") || `<option value="">尚無站點</option>`;
-    chartDailySiteId = sites.some(s=>s.id===prev) ? prev : (sites[0] ? sites[0].id : null);
+    const matches = q
+      ? sites.filter(s=>((s.meterNo||"")+" "+(s.site||"")+" "+(s.location||"")).toLowerCase().includes(q))
+      : sites;
+    sel.innerHTML = matches.map(s=>
+      `<option value="${s.id}">${escapeHtml(s.site)}${s.location ? "（"+escapeHtml(s.location)+"）" : ""}${s.meterNo ? " · 錶:"+escapeHtml(s.meterNo) : ""}</option>`
+    ).join("") || `<option value="">找不到符合的站點</option>`;
+    chartDailySiteId = matches.some(s=>s.id===prev) ? prev : (matches[0] ? matches[0].id : null);
     if(chartDailySiteId) sel.value = chartDailySiteId;
   }
+  document.getElementById("chartDailySiteSearch").addEventListener("input", ()=>{
+    populateChartDailySiteSelect();
+    renderDailyTrendChart();
+  });
   document.getElementById("chartDailySiteSelect").addEventListener("change", e=>{
     chartDailySiteId = e.target.value;
     renderDailyTrendChart();

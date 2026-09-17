@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.55">
+<meta name="app-build" content="4.56">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -755,7 +755,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.55</span>
+      <span class="pro-badge">PRO v4.56</span>
     </div>
 
     <div class="control-panel">
@@ -962,7 +962,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.55 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.56 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3680,7 +3680,12 @@
   // 主動呼叫（不掛在 render() 本身），避免使用者手動一個字一個字打搜尋時被搶走焦點。
   function focusCurrInputForSearch(){
     const inputs = document.querySelectorAll('#cardList [data-curr]');
-    if(inputs.length === 1){
+    if(inputs.length !== 1) return;
+    // 掃描器（尤其相機掃描）通常會在同一時間點關閉彈跳視窗，而關閉視窗會觸發背景捲動鎖
+    // 用 MutationObserver 解鎖 .content-outer 的 overflow，但那個解鎖是排在微任務佇列，
+    // 如果馬上同步呼叫 scrollIntoView，這時候 .content-outer 可能還是 overflow:hidden，
+    // 捲動完全沒有效果。用 setTimeout 延到下一輪事件迴圈，確保解鎖已經生效。
+    setTimeout(()=>{
       const input = inputs[0];
       // 手機瀏覽器（尤其 iOS Safari）常常不讓「非使用者手勢直接觸發」的 focus 跳出鍵盤，
       // 所以先把卡片捲動進畫面，再加一個短暫的外框脈動提示——就算鍵盤沒自動跳出，
@@ -3690,7 +3695,7 @@
       input.select();
       input.classList.add("scan-focus-hint");
       setTimeout(()=>input.classList.remove("scan-focus-hint"), 1600);
-    }
+    }, 60);
   }
 
   // ---- 條碼掃描（可重複使用：掃到後帶入指定的輸入框，並觸發它原本的 input 事件，

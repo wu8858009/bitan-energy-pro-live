@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.64">
+<meta name="app-build" content="4.65">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -511,8 +511,8 @@
   /* ===== 圖表分析 ===== */
   .chart-sheet{max-width:520px;}
   .chart-tabs{display:flex; gap:8px; margin-bottom:16px;}
-  .chart-tab{flex:1; border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:10px 4px; font-weight:800; font-size:12.5px; color:var(--ink-soft); text-align:center;}
-  .chart-tab.active{border-color:var(--navy-900); background:var(--navy-900); color:#fff;}
+  .chart-tab, .chart-mode-btn{flex:1; border:1.5px solid var(--line); background:#fbfcfe; border-radius:10px; padding:10px 4px; font-weight:800; font-size:12.5px; color:var(--ink-soft); text-align:center;}
+  .chart-tab.active, .chart-mode-btn.active{border-color:var(--navy-900); background:var(--navy-900); color:#fff;}
   .chart-canvas-wrap{background:#f8f9fb; border-radius:14px; padding:14px 10px 8px; margin-bottom:14px;}
   #usageChartCanvas{width:100%; height:190px; display:block;}
   .chart-legend{display:flex; gap:16px; justify-content:center; margin-top:6px; font-size:12px; font-weight:700; color:var(--ink-soft); flex-wrap:wrap;}
@@ -634,8 +634,8 @@
   body.dark-mode .card-actions{border-top-color:#26304a;}
   body.dark-mode .menu-item.danger,
   body.dark-mode .menu-tile.danger{background:#2a1518; border-color:#4a2229; color:#ff8a80;}
-  body.dark-mode .chart-tab{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
-  body.dark-mode .chart-tab.active{background:#fff; color:var(--navy-900); border-color:#fff;}
+  body.dark-mode .chart-tab, body.dark-mode .chart-mode-btn{background:#1a2337; color:var(--ink-soft); border-color:#2a3550;}
+  body.dark-mode .chart-tab.active, body.dark-mode .chart-mode-btn.active{background:#fff; color:var(--navy-900); border-color:#fff;}
   body.dark-mode .chart-canvas-wrap,
   body.dark-mode .chart-stat-card,
   body.dark-mode .top-usage-item .rank{background:#1a2337;}
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.64</span>
+      <span class="pro-badge">PRO v4.65</span>
     </div>
 
     <div class="control-panel">
@@ -882,60 +882,79 @@
   <div class="sheet chart-sheet">
     <h2>用量趨勢分析 <span class="menu-pro-badge">PRO</span></h2>
 
-    <div class="chart-filter-row">
-      <select class="chart-filter-select" id="chartGroupFilter">
-        <option value="all">全部群組</option>
-      </select>
-      <div class="chart-period-toggle">
-        <button type="button" class="active" data-period="6">近6期</button>
-        <button type="button" data-period="12">近12期</button>
-      </div>
-    </div>
-
     <div class="chart-tabs">
-      <button type="button" class="chart-tab active" data-chart-type="all">全部</button>
-      <button type="button" class="chart-tab" data-chart-type="water">💧 水</button>
-      <button type="button" class="chart-tab" data-chart-type="elec">⚡ 電</button>
-      <button type="button" class="chart-tab" data-chart-type="gas">🔥 瓦斯</button>
+      <button type="button" class="chart-mode-btn active" data-chart-mode="monthly">月度分析</button>
+      <button type="button" class="chart-mode-btn" data-chart-mode="daily">每日趨勢</button>
     </div>
 
-    <div class="chart-toggle-row">
-      <button type="button" class="chart-toggle-chip" id="chartTrendToggle">
-        <span>📈 趨勢預測</span>
-        <span class="toggle-switch" id="trendToggleSwitch"></span>
-      </button>
-      <button type="button" class="chart-toggle-chip" id="chartYoyToggle">
-        <span>📅 同期比較</span>
-        <span class="toggle-switch" id="yoyToggleSwitch"></span>
-      </button>
-    </div>
-
-    <div class="chart-canvas-wrap">
-      <canvas id="usageChartCanvas"></canvas>
-      <div class="chart-legend" id="chartLegend"></div>
-    </div>
-
-    <div class="menu-section-title">異常用量警示</div>
-    <div class="chart-anomaly-box" id="chartAnomalyBox"></div>
-
-    <div class="chart-stats-row" id="chartStatsRow"></div>
-
-    <div class="chart-donut-row" id="chartDonutRow">
-      <canvas id="usageDonutCanvas" width="110" height="110"></canvas>
-      <div class="donut-breakdown" id="donutBreakdown"></div>
-    </div>
-
-    <div class="menu-section-title">本期費用試算</div>
-    <div class="chart-cost-box" id="chartCostBox"></div>
-
-    <div class="rank-header">
-      <div class="menu-section-title" style="margin-bottom:0;">本期用量排行</div>
-      <div class="rank-tabs">
-        <button type="button" class="rank-tab active" data-rank-mode="site">站點排行</button>
-        <button type="button" class="rank-tab" data-rank-mode="group">群組比較</button>
+    <div id="chartMonthlyView">
+      <div class="chart-filter-row">
+        <select class="chart-filter-select" id="chartGroupFilter">
+          <option value="all">全部群組</option>
+        </select>
+        <div class="chart-period-toggle">
+          <button type="button" class="active" data-period="6">近6期</button>
+          <button type="button" data-period="12">近12期</button>
+        </div>
       </div>
+
+      <div class="chart-tabs">
+        <button type="button" class="chart-tab active" data-chart-type="all">全部</button>
+        <button type="button" class="chart-tab" data-chart-type="water">💧 水</button>
+        <button type="button" class="chart-tab" data-chart-type="elec">⚡ 電</button>
+        <button type="button" class="chart-tab" data-chart-type="gas">🔥 瓦斯</button>
+      </div>
+
+      <div class="chart-toggle-row">
+        <button type="button" class="chart-toggle-chip" id="chartTrendToggle">
+          <span>📈 趨勢預測</span>
+          <span class="toggle-switch" id="trendToggleSwitch"></span>
+        </button>
+        <button type="button" class="chart-toggle-chip" id="chartYoyToggle">
+          <span>📅 同期比較</span>
+          <span class="toggle-switch" id="yoyToggleSwitch"></span>
+        </button>
+      </div>
+
+      <div class="chart-canvas-wrap">
+        <canvas id="usageChartCanvas"></canvas>
+        <div class="chart-legend" id="chartLegend"></div>
+      </div>
+
+      <div class="menu-section-title">異常用量警示</div>
+      <div class="chart-anomaly-box" id="chartAnomalyBox"></div>
+
+      <div class="chart-stats-row" id="chartStatsRow"></div>
+
+      <div class="chart-donut-row" id="chartDonutRow">
+        <canvas id="usageDonutCanvas" width="110" height="110"></canvas>
+        <div class="donut-breakdown" id="donutBreakdown"></div>
+      </div>
+
+      <div class="menu-section-title">本期費用試算</div>
+      <div class="chart-cost-box" id="chartCostBox"></div>
+
+      <div class="rank-header">
+        <div class="menu-section-title" style="margin-bottom:0;">本期用量排行</div>
+        <div class="rank-tabs">
+          <button type="button" class="rank-tab active" data-rank-mode="site">站點排行</button>
+          <button type="button" class="rank-tab" data-rank-mode="group">群組比較</button>
+        </div>
+      </div>
+      <div class="top-usage-list" id="topUsageList"></div>
     </div>
-    <div class="top-usage-list" id="topUsageList"></div>
+
+    <!-- 每日趨勢：選一個站點，看那個站點在目前選定月份裡的每日用量（資料來源是站點卡片上
+         的「📅 每日」記錄），跟上面月度分析（整個群組/類型的月度趨勢）是互補的不同角度 -->
+    <div id="chartDailyView" hidden>
+      <div class="chart-filter-row">
+        <select class="chart-filter-select" id="chartDailySiteSelect"></select>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="dailyTrendCanvas"></canvas>
+      </div>
+      <div class="chart-stats-row" id="chartDailyStatsRow"></div>
+    </div>
 
     <div class="sheet-actions">
       <button class="btn-cancel" id="chartExportBtn">📄 匯出報告</button>
@@ -978,7 +997,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.64 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.65 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3103,6 +3122,8 @@
   let chartShowTrend = false;
   let chartShowYoY = false;
   let chartRankMode = "site";
+  let chartMode = "monthly";
+  let chartDailySiteId = null;
   const CHART_COLORS = {
     water: "#2f7bf6",
     elec: "#f5b400",
@@ -3117,8 +3138,10 @@
     chartShowTrend = false;
     chartShowYoY = false;
     chartRankMode = "site";
+    chartMode = "monthly";
     syncChartTabsUI();
     syncChartPeriodUI();
+    syncChartModeUI();
     populateChartGroupFilter();
     document.getElementById("trendToggleSwitch").classList.remove("on");
     document.getElementById("yoyToggleSwitch").classList.remove("on");
@@ -3170,6 +3193,154 @@
   function syncChartPeriodUI(){
     document.querySelectorAll(".chart-period-toggle button").forEach(b=>{
       b.classList.toggle("active", parseInt(b.dataset.period,10) === chartPeriodMonths);
+    });
+  }
+
+  // ---- 每日趨勢：選一個站點，看它在目前選定月份的每日用量（資料來自「📅 每日」記錄），
+  // 跟月度分析（整個群組/類型的月度趨勢）是互補的不同角度，彼此獨立 ----
+  document.querySelectorAll(".chart-mode-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      chartMode = btn.dataset.chartMode;
+      syncChartModeUI();
+      if(chartMode === "daily"){
+        populateChartDailySiteSelect();
+        renderDailyTrendChart();
+      }
+    });
+  });
+  function syncChartModeUI(){
+    document.querySelectorAll(".chart-mode-btn").forEach(b=>{
+      b.classList.toggle("active", b.dataset.chartMode === chartMode);
+    });
+    document.getElementById("chartMonthlyView").hidden = chartMode !== "monthly";
+    document.getElementById("chartDailyView").hidden = chartMode !== "daily";
+    document.getElementById("chartExportBtn").hidden = chartMode !== "monthly";
+  }
+  function populateChartDailySiteSelect(){
+    const sel = document.getElementById("chartDailySiteSelect");
+    const prev = chartDailySiteId;
+    sel.innerHTML = sites.map(s=>
+      `<option value="${s.id}">${escapeHtml(s.site)}${s.location ? "（"+escapeHtml(s.location)+"）" : ""}</option>`
+    ).join("") || `<option value="">尚無站點</option>`;
+    chartDailySiteId = sites.some(s=>s.id===prev) ? prev : (sites[0] ? sites[0].id : null);
+    if(chartDailySiteId) sel.value = chartDailySiteId;
+  }
+  document.getElementById("chartDailySiteSelect").addEventListener("change", e=>{
+    chartDailySiteId = e.target.value;
+    renderDailyTrendChart();
+  });
+
+  let chartDailyByDate = {};
+  async function renderDailyTrendChart(){
+    const statsRow = document.getElementById("chartDailyStatsRow");
+    if(!chartDailySiteId){
+      statsRow.innerHTML = "";
+      drawDailyTrendChart([], [], "water");
+      return;
+    }
+    const site = sites.find(s=>s.id===chartDailySiteId);
+    if(!site) return;
+
+    chartDailyByDate = {};
+    try{
+      const entries = await apiFetch("/daily-readings/" + chartDailySiteId + "?month=" + encodeURIComponent(currentMonthKey)).then(r=>r.json());
+      entries.forEach(e=>{ chartDailyByDate[e.date] = e.value; });
+    }catch(e){
+      showToast(e.message || "讀取每日記錄失敗");
+    }
+    if(chartDailySiteId !== site.id || chartMode !== "daily") return;
+
+    const maxVal = meterMaxFor(site);
+    const total = daysInMonth(currentMonthKey);
+    const days = [];
+    const usages = [];
+    for(let d=1; d<=total; d++){
+      const dateStr = currentMonthKey + "-" + String(d).padStart(2, "0");
+      const val = chartDailyByDate[dateStr];
+      let usage = null;
+      if(val !== undefined){
+        const prevVal = chartDailyByDate[shiftDateStr(dateStr, -1)];
+        if(prevVal !== undefined){
+          const u = computeEffectiveCurr(prevVal, val, maxVal) - prevVal;
+          if(!isNaN(u)) usage = u;
+        }
+      }
+      days.push(d);
+      usages.push(usage);
+    }
+    drawDailyTrendChart(days, usages, site.type);
+
+    const recorded = Object.keys(chartDailyByDate).length;
+    const validUsages = usages.filter(u=>u!==null);
+    const totalUsage = validUsages.reduce((a,b)=>a+b, 0);
+    const avgUsage = validUsages.length ? totalUsage/validUsages.length : 0;
+    statsRow.innerHTML = `
+      <div class="chart-stat-card"><div class="n">${recorded}</div><div class="l">已記錄天數</div></div>
+      <div class="chart-stat-card"><div class="n">${formatNum(totalUsage)}</div><div class="l">相鄰天累計用量</div></div>
+      <div class="chart-stat-card"><div class="n">${formatNum(avgUsage)}</div><div class="l">日均用量</div></div>
+    `;
+  }
+
+  function drawDailyTrendChart(days, usages, siteType){
+    const canvas = document.getElementById("dailyTrendCanvas");
+    const wrap = canvas.parentElement;
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = wrap.clientWidth - 20;
+    const cssH = 190;
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssW,cssH);
+
+    const isDark = document.body.classList.contains("dark-mode");
+    const axisColor = isDark ? "#5c6684" : "#9aa3b2";
+    const labelColor = isDark ? "#aab2c8" : "#6b7280";
+
+    const hasData = usages.some(u=>u!==null);
+    if(!hasData){
+      ctx.fillStyle = labelColor;
+      ctx.font = "13px -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("這個月還沒有連續兩天以上的每日記錄可供分析", cssW/2, cssH/2);
+      return;
+    }
+
+    const maxVal = Math.max(1, ...usages.filter(u=>u!==null));
+    const padL = 8, padR = 8, padT = 10, padB = 22;
+    const chartW = cssW - padL - padR;
+    const chartH = cssH - padT - padB;
+    const groupW = chartW / days.length;
+    const barW = Math.min(groupW>18?14:groupW-4, 16);
+
+    ctx.strokeStyle = axisColor;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT+chartH);
+    ctx.lineTo(padL+chartW, padT+chartH);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    const skip = days.length>20 ? 5 : (days.length>10 ? 2 : 1);
+    days.forEach((d, i)=>{
+      const groupX = padL + i*groupW;
+      const usage = usages[i];
+      if(usage !== null){
+        const h = maxVal>0 ? (Math.max(0,usage)/maxVal) * (chartH-6) : 0;
+        const barX = groupX + (groupW-barW)/2;
+        const barY = padT + chartH - h;
+        ctx.fillStyle = CHART_COLORS[siteType] || "#2f7bf6";
+        roundRectPath(ctx, barX, barY, barW, Math.max(h,2), 3);
+        ctx.fill();
+      }
+      if(d % skip === 0 || i === days.length-1){
+        ctx.fillStyle = labelColor;
+        ctx.font = "600 10px -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String(d), groupX + groupW/2, cssH - 6);
+      }
     });
   }
 

@@ -15,7 +15,13 @@ public class ChangePasswordRequest
 public class MeResponse
 {
     public string Username { get; set; } = "";
+    public string DisplayName { get; set; } = "";
     public string Role { get; set; } = "";
     public List<string> AssignedGroups { get; set; } = new();
     public string PermissionLevel { get; set; } = "Full"; // "View" | "Edit" | "Full"
+}
+
+public class UpdateDisplayNameRequest
+{
+    public string DisplayName { get; set; } = "";
 }

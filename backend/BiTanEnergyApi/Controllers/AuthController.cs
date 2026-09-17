@@ -32,6 +32,7 @@ public class AuthController : ControllerBase
     private static MeResponse ToMeResponse(AdminUser u) => new()
     {
         Username = u.Username,
+        DisplayName = u.DisplayName,
         Role = u.Role,
         AssignedGroups = u.AssignedGroups,
         PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel
@@ -138,5 +139,20 @@ public class AuthController : ControllerBase
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == uid, user);
         await AuditLogger.LogAsync(_db, user.Username, "修改密碼", "");
         return Ok();
+    }
+
+    // 讓使用者（任何角色）自己改自己的姓名——不用麻煩管理員代為修改。
+    [HttpPut("display-name")]
+    public async Task<IActionResult> UpdateDisplayName([FromBody] UpdateDisplayNameRequest req)
+    {
+        var uid = User.FindFirstValue("uid");
+        if (string.IsNullOrEmpty(uid)) return Unauthorized();
+
+        var user = await _db.AdminUsers.Find(u => u.Id == uid).FirstOrDefaultAsync();
+        if (user == null) return Unauthorized();
+
+        user.DisplayName = (req.DisplayName ?? "").Trim();
+        await _db.AdminUsers.ReplaceOneAsync(u => u.Id == uid, user);
+        return Ok(ToMeResponse(user));
     }
 }

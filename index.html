@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.71">
+<meta name="app-build" content="4.72">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -776,7 +776,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.71</span>
+      <span class="pro-badge">PRO v4.72</span>
     </div>
 
     <div class="control-panel">
@@ -1011,7 +1011,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.71 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.72 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1019,6 +1019,15 @@
 <div class="overlay" id="settingsOverlay">
   <div class="sheet">
     <h2>設定</h2>
+
+    <div class="menu-section">
+      <div class="menu-section-title">個人資料</div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>姓名<span class="mi-sub" id="set_usernameHint"></span></label>
+        <input type="text" id="set_displayName" placeholder="例：陳小明">
+      </div>
+      <button type="button" class="btn-confirm" style="width:100%;" id="saveDisplayNameBtn">儲存姓名</button>
+    </div>
 
     <div class="menu-section" id="priceSettingsSection">
       <div class="menu-section-title">費用與預算設定</div>
@@ -1461,6 +1470,8 @@
   let currentUserRole = null;
   let currentUserAssignedGroups = [];
   let currentUserPermissionLevel = "Full";
+  let currentUserDisplayName = "";
+  let currentUsername = "";
   // Admin 看得到所有門市（含還沒有站點的空門市），跟一般使用者只看自己被指派的門市不同來源
   let adminKnownStoreNames = [];
   async function refreshAdminKnownStoreNames(){
@@ -2576,9 +2587,29 @@
   document.getElementById("mSettingsBtn").addEventListener("click", ()=>{
     menuOverlay.classList.remove("open");
     syncDarkToggleUI();
+    document.getElementById("set_displayName").value = currentUserDisplayName;
+    document.getElementById("set_usernameHint").textContent = currentUsername ? "帳號：" + currentUsername : "";
     settingsOverlay.classList.add("open");
   });
   document.getElementById("settingsCloseBtn").addEventListener("click", ()=>settingsOverlay.classList.remove("open"));
+
+  // ---- 個人資料：任何角色都能自己改自己的姓名，不用麻煩管理員代為修改 ----
+  document.getElementById("saveDisplayNameBtn").addEventListener("click", async ()=>{
+    const displayName = document.getElementById("set_displayName").value.trim();
+    const btn = document.getElementById("saveDisplayNameBtn");
+    btn.disabled = true;
+    try{
+      await apiFetch("/auth/display-name", {
+        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({displayName})
+      });
+      currentUserDisplayName = displayName;
+      showToast("姓名已更新");
+    }catch(e){
+      showToast(e.message || "儲存失敗");
+    }finally{
+      btn.disabled = false;
+    }
+  });
 
   // ---- 費用與預算設定（彈跳視窗，從設定裡的按鈕點進去）----
   const priceSettingsOverlay = document.getElementById("priceSettingsOverlay");
@@ -4590,6 +4621,8 @@
       currentUserRole = me.role;
       currentUserAssignedGroups = me.assignedGroups || [];
       currentUserPermissionLevel = me.permissionLevel || "Full";
+      currentUserDisplayName = me.displayName || "";
+      currentUsername = me.username || "";
       applyRoleUI();
       const pwdInput = document.getElementById("loginPassword");
       pwdInput.value = "";
@@ -4637,6 +4670,8 @@
         currentUserRole = me.role;
         currentUserAssignedGroups = me.assignedGroups || [];
         currentUserPermissionLevel = me.permissionLevel || "Full";
+        currentUserDisplayName = me.displayName || "";
+        currentUsername = me.username || "";
         applyRoleUI();
         hideLoginOverlay();
         await bootAppData();

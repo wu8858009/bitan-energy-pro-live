@@ -25,5 +25,11 @@ public static class MongoIndexInitializer
         var storeNameKeys = Builders<Store>.IndexKeys.Ascending(s => s.Name);
         await db.Stores.Indexes.CreateOneAsync(
             new CreateIndexModel<Store>(storeNameKeys, new CreateIndexOptions { Unique = true }));
+
+        var dailyReadingKeys = Builders<DailyReading>.IndexKeys
+            .Ascending(r => r.SiteId)
+            .Ascending(r => r.Date);
+        await db.DailyReadings.Indexes.CreateOneAsync(
+            new CreateIndexModel<DailyReading>(dailyReadingKeys, new CreateIndexOptions { Unique = true }));
     }
 }

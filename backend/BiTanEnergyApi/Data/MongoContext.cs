@@ -15,6 +15,7 @@ public class MongoContext
     public IMongoCollection<MonthlyReading> MonthlyReadings { get; }
     public IMongoCollection<AdminUser> AdminUsers { get; }
     public IMongoCollection<Store> Stores { get; }
+    public IMongoCollection<DailyReading> DailyReadings { get; }
 
     public MongoContext(IConfiguration config)
     {
@@ -33,5 +34,6 @@ public class MongoContext
         MonthlyReadings = Database.GetCollection<MonthlyReading>("monthlyReadings");
         AdminUsers = Database.GetCollection<AdminUser>("adminUsers");
         Stores = Database.GetCollection<Store>("stores");
+        DailyReadings = Database.GetCollection<DailyReading>("dailyReadings");
     }
 }

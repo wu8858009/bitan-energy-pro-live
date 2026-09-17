@@ -70,6 +70,7 @@ public class BackupController : ControllerBase
         try
         {
             await _db.MonthlyReadings.DeleteManyAsync(session, FilterDefinition<MonthlyReading>.Empty);
+            await _db.DailyReadings.DeleteManyAsync(session, FilterDefinition<DailyReading>.Empty);
             await _db.Sites.DeleteManyAsync(session, FilterDefinition<Site>.Empty);
 
             var idMap = new Dictionary<string, string>();
@@ -126,6 +127,7 @@ public class BackupController : ControllerBase
         var filePaths = readings.SelectMany(r => r.Photos).Select(p => p.FilePath).ToList();
 
         await _db.MonthlyReadings.DeleteManyAsync(FilterDefinition<MonthlyReading>.Empty);
+        await _db.DailyReadings.DeleteManyAsync(FilterDefinition<DailyReading>.Empty);
         await _db.Sites.DeleteManyAsync(FilterDefinition<Site>.Empty);
 
         foreach (var relPath in filePaths)

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.57">
+<meta name="app-build" content="4.58">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -220,6 +220,20 @@
     font-size:11px; font-weight:700; padding:5px 9px; margin-left:6px; margin-bottom:5px; cursor:pointer;
   }
   body.dark-mode .qr-btn{background:#1a2337; color:var(--ink-soft);}
+
+  .daily-log-row{display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line);}
+  .daily-log-row:last-child{border-bottom:none;}
+  .dl-date{flex:0 0 62px; font-size:12px; font-weight:700; color:var(--ink-soft);}
+  .dl-input{
+    flex:1 1 auto; min-width:0; border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:14px; font-weight:700; color:var(--ink); background:#fbfcfe;
+    -moz-appearance:textfield;
+  }
+  .dl-input::-webkit-outer-spin-button, .dl-input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .dl-usage{flex:0 0 54px; text-align:right; font-size:12px; font-weight:700; color:var(--blue-tag);}
+  .dl-clear{flex:0 0 auto; background:none; border:none; color:#c7cede; font-size:14px; cursor:pointer; padding:4px;}
+  body.dark-mode .dl-input{background:#1a2337; color:var(--ink); border-color:#2a3550;}
+  body.dark-mode .daily-log-row{border-bottom-color:#26304a;}
 
   .site-name{font-size:18px; font-weight:800; margin:0 0 2px; overflow-wrap:break-word; word-break:break-word;}
   .site-meta{color:var(--ink-soft); font-size:12.5px; margin-bottom:10px; display:flex; align-items:flex-start; gap:4px; overflow-wrap:break-word; word-break:break-word;}
@@ -755,7 +769,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.57</span>
+      <span class="pro-badge">PRO v4.58</span>
     </div>
 
     <div class="control-panel">
@@ -962,7 +976,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.57 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.58 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1216,6 +1230,18 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="qrCloseBtn">關閉</button>
       <button class="btn-confirm" id="qrDownloadBtn">📥 下載</button>
+    </div>
+  </div>
+</div>
+
+<!-- 每日記錄：跟月度上期/本期完全獨立，純粹讓使用者針對某幾天額外記一筆讀數，觀察月中用量趨勢 -->
+<div class="overlay" id="dailyLogOverlay">
+  <div class="sheet" style="max-width:420px;">
+    <h2 id="dailyLogTitle">每日記錄</h2>
+    <div style="color:var(--ink-soft); font-size:13px; margin-bottom:14px;" id="dailyLogSub">--</div>
+    <div id="dailyLogList" style="max-height:52vh; overflow-y:auto;"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="dailyLogCloseBtn">關閉</button>
     </div>
   </div>
 </div>
@@ -1570,6 +1596,120 @@
     a.click();
   });
 
+  // ---- 每日記錄：跟月度上期/本期完全獨立，純粹讓使用者針對某幾天額外記一筆讀數，
+  // 觀察月中用量趨勢，不影響月結算計算。用量算法只比較「相鄰兩天」，某天沒填就從
+  // 下一筆有填的那天開始重新算，不會往回追溯到更早以前。 ----
+  let dailyLogSiteId = null;
+  let dailyByDate = {};
+  const dailySaveTimers = {};
+  const WEEKDAY_LABELS = ["日","一","二","三","四","五","六"];
+
+  function daysInMonth(monthKey){
+    const [y, m] = monthKey.split("-").map(Number);
+    return new Date(y, m, 0).getDate();
+  }
+  function shiftDateStr(dateStr, deltaDays){
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + deltaDays);
+    return d.toISOString().slice(0, 10);
+  }
+  function dailyUsageText(dateStr, maxVal){
+    const val = dailyByDate[dateStr];
+    if(val === undefined || val === null) return "--";
+    const prevVal = dailyByDate[shiftDateStr(dateStr, -1)];
+    if(prevVal === undefined || prevVal === null) return "--";
+    const usage = computeEffectiveCurr(prevVal, val, maxVal) - prevVal;
+    return isNaN(usage) ? "--" : formatNum(usage);
+  }
+  function refreshDailyUsageDisplay(dateStr, maxVal){
+    const el = document.querySelector(`.dl-usage[data-date="${dateStr}"]`);
+    if(el) el.textContent = dailyUsageText(dateStr, maxVal);
+  }
+
+  async function openDailyLog(siteId){
+    const site = sites.find(s=>s.id===siteId);
+    if(!site) return;
+    dailyLogSiteId = siteId;
+    document.getElementById("dailyLogTitle").textContent = site.site || "";
+    const [y, m] = currentMonthKey.split("-");
+    document.getElementById("dailyLogSub").textContent = `${y}年${m}月`;
+    const listEl = document.getElementById("dailyLogList");
+    listEl.innerHTML = `<div style="text-align:center; color:var(--ink-soft); padding:20px;">載入中…</div>`;
+    document.getElementById("dailyLogOverlay").classList.add("open");
+
+    dailyByDate = {};
+    try{
+      const entries = await apiFetch("/daily-readings/" + siteId + "?month=" + encodeURIComponent(currentMonthKey)).then(r=>r.json());
+      entries.forEach(e=>{ dailyByDate[e.date] = e.value; });
+    }catch(e){
+      showToast(e.message || "讀取每日記錄失敗");
+    }
+    if(dailyLogSiteId !== siteId) return; // 這段等待期間使用者可能已經關閉或切到別的站點
+
+    const maxVal = meterMaxFor(site);
+    const total = daysInMonth(currentMonthKey);
+    const rows = [];
+    for(let d=1; d<=total; d++){
+      const dateStr = currentMonthKey + "-" + String(d).padStart(2, "0");
+      const dow = new Date(dateStr + "T00:00:00").getDay();
+      const val = dailyByDate[dateStr];
+      rows.push(`
+        <div class="daily-log-row">
+          <span class="dl-date">${String(d).padStart(2,"0")}日(${WEEKDAY_LABELS[dow]})</span>
+          <input type="number" inputmode="decimal" class="dl-input" data-date="${dateStr}" placeholder="讀數" value="${val!==undefined ? val : ""}" ${canEdit() ? "" : "disabled"}>
+          <span class="dl-usage" data-date="${dateStr}">${dailyUsageText(dateStr, maxVal)}</span>
+          ${canEdit() ? `<button type="button" class="dl-clear" data-date="${dateStr}" title="清除">✕</button>` : ""}
+        </div>
+      `);
+    }
+    listEl.innerHTML = rows.join("");
+
+    listEl.querySelectorAll(".dl-input").forEach(inp=>{
+      inp.addEventListener("input", ()=>{
+        const date = inp.dataset.date;
+        clearTimeout(dailySaveTimers[date]);
+        dailySaveTimers[date] = setTimeout(()=>saveDailyReading(siteId, date, inp.value, maxVal), 500);
+      });
+    });
+    listEl.querySelectorAll(".dl-clear").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const date = btn.dataset.date;
+        const inp = listEl.querySelector(`.dl-input[data-date="${date}"]`);
+        if(inp) inp.value = "";
+        saveDailyReading(siteId, date, "", maxVal);
+      });
+    });
+  }
+
+  async function saveDailyReading(siteId, date, valueStr, maxVal){
+    try{
+      if(valueStr === ""){
+        await apiFetch("/daily-readings/" + siteId + "?date=" + date, {method:"DELETE"});
+        delete dailyByDate[date];
+      }else{
+        const value = parseFloat(valueStr);
+        if(isNaN(value)) return;
+        await apiFetch("/daily-readings/" + siteId + "?date=" + date, {
+          method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({value})
+        });
+        dailyByDate[date] = value;
+      }
+      refreshDailyUsageDisplay(date, maxVal);
+      refreshDailyUsageDisplay(shiftDateStr(date, 1), maxVal);
+    }catch(e){
+      showToast(e.message || "儲存失敗");
+    }
+  }
+
+  function closeDailyLog(){
+    document.getElementById("dailyLogOverlay").classList.remove("open");
+    dailyLogSiteId = null;
+  }
+  document.getElementById("dailyLogCloseBtn").addEventListener("click", closeDailyLog);
+  document.getElementById("dailyLogOverlay").addEventListener("click", e=>{
+    if(e.target.id === "dailyLogOverlay") closeDailyLog();
+  });
+
   // ---- 自訂確認彈窗（取代原生 confirm，避免在受限預覽環境被封鎖） ----
   let pendingConfirmCallback = null;
   function showConfirm(message, onConfirm, opts){
@@ -1809,6 +1949,7 @@
         </div>
         <div class="type-badge" ${canEdit() ? `data-swap="${site.id}"` : ""}>${meta.icon} ${meta.label} ${canEdit() ? '<span class="swap">🔄</span>' : ""}</div>
         <button type="button" class="qr-btn" data-qr="${site.id}" title="顯示錶號 QR Code">🔳 QR</button>
+        <button type="button" class="qr-btn" data-daily="${site.id}" title="每日記錄">📅 每日</button>
         <div class="site-name">${escapeHtml(site.site)}</div>
         <div class="site-meta">📍 ${escapeHtml(site.location)} ｜ 錶:${escapeHtml(site.meterNo||"--")}</div>
 
@@ -1896,6 +2037,9 @@
     });
     list.querySelectorAll("[data-qr]").forEach(btn=>{
       btn.addEventListener("click", ()=>{ openQrCode(btn.dataset.qr); });
+    });
+    list.querySelectorAll("[data-daily]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{ openDailyLog(btn.dataset.daily); });
     });
     list.querySelectorAll("[data-photo]").forEach(btn=>{
       btn.addEventListener("click", ()=>{

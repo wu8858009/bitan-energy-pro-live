@@ -130,6 +130,7 @@ public class SitesController : ControllerBase
         // photos) explicitly. Note: this does not delete the photos' physical files,
         // matching the previous EF behavior (it never touched disk on site delete either).
         await _db.MonthlyReadings.DeleteManyAsync(r => r.SiteId == id);
+        await _db.DailyReadings.DeleteManyAsync(r => r.SiteId == id);
         await _db.Sites.DeleteOneAsync(s => s.Id == id);
         return Ok();
     }

@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.63">
+<meta name="app-build" content="4.64">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -340,6 +340,10 @@
   .form-group input:focus, .form-group select:focus{border-color:var(--navy-800);}
   .pwd-field{position:relative;}
   .pwd-field input{padding-right:42px;}
+  /* 關掉 Edge/Chromium 內建的密碼欄位「顯示密碼」眼睛圖示，避免跟我們自己畫的
+     .pwd-toggle 眼睛按鈕疊在一起、變成兩個重疊的眼睛圖示 */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear{display:none;}
   .pwd-toggle{
     position:absolute; right:4px; top:50%; transform:translateY(-50%);
     width:34px; height:34px; border:none; background:transparent; border-radius:8px;
@@ -767,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.63</span>
+      <span class="pro-badge">PRO v4.64</span>
     </div>
 
     <div class="control-panel">
@@ -974,7 +978,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.63 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.64 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

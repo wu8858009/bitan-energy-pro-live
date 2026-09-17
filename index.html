@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.58">
+<meta name="app-build" content="4.59">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -769,7 +769,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.58</span>
+      <span class="pro-badge">PRO v4.59</span>
     </div>
 
     <div class="control-panel">
@@ -976,7 +976,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.58 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.59 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1664,11 +1664,22 @@
     }
     listEl.innerHTML = rows.join("");
 
-    listEl.querySelectorAll(".dl-input").forEach(inp=>{
+    const dlInputs = listEl.querySelectorAll(".dl-input");
+    dlInputs.forEach((inp, idx)=>{
       inp.addEventListener("input", ()=>{
         const date = inp.dataset.date;
         clearTimeout(dailySaveTimers[date]);
         dailySaveTimers[date] = setTimeout(()=>saveDailyReading(siteId, date, inp.value, maxVal), 500);
+      });
+      // 按 Enter 直接跳到下一天的輸入框，一路按著就能連續輸入好幾天的讀數
+      inp.addEventListener("keydown", e=>{
+        if(e.key !== "Enter") return;
+        e.preventDefault();
+        clearTimeout(dailySaveTimers[inp.dataset.date]);
+        saveDailyReading(siteId, inp.dataset.date, inp.value, maxVal);
+        const next = dlInputs[idx + 1];
+        if(next){ next.focus(); next.select(); }
+        else{ inp.blur(); }
       });
     });
     listEl.querySelectorAll(".dl-clear").forEach(btn=>{

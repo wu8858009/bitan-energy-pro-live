@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.67">
+<meta name="app-build" content="4.68">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -771,7 +771,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.67</span>
+      <span class="pro-badge">PRO v4.68</span>
     </div>
 
     <div class="control-panel">
@@ -948,7 +948,10 @@
          的「📅 每日」記錄），跟上面月度分析（整個群組/類型的月度趨勢）是互補的不同角度 -->
     <div id="chartDailyView" hidden>
       <div class="chart-filter-row">
-        <input type="text" class="chart-filter-select" id="chartDailySiteSearch" placeholder="搜尋錶號、站點名稱...">
+        <div class="input-with-icon" style="flex:1;">
+          <input type="text" class="chart-filter-select" id="chartDailySiteSearch" placeholder="搜尋錶號、站點名稱..." style="width:100%;">
+          <button type="button" class="input-icon-btn" id="chartDailyScanBtn" title="掃描錶號條碼" aria-label="掃描錶號條碼" style="width:28px; height:28px; right:5px;">📷</button>
+        </div>
       </div>
       <div class="chart-filter-row">
         <select class="chart-filter-select" id="chartDailySiteSelect"></select>
@@ -1000,7 +1003,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.67 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.68 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -4095,6 +4098,7 @@
   }
   document.getElementById("scanBarcodeBtn").addEventListener("click", ()=>openScanner("searchBox"));
   document.getElementById("scanMeterNoBtn").addEventListener("click", ()=>openScanner("f_meterno"));
+  document.getElementById("chartDailyScanBtn").addEventListener("click", ()=>openScanner("chartDailySiteSearch"));
   document.getElementById("scannerCloseBtn").addEventListener("click", closeScanner);
   document.getElementById("scannerOverlay").addEventListener("click", e=>{
     if(e.target.id === "scannerOverlay") closeScanner();

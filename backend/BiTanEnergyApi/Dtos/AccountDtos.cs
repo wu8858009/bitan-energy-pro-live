@@ -9,6 +9,8 @@ public class AccountDto
     public List<string> AssignedGroups { get; set; } = new();
     public string PermissionLevel { get; set; } = "Full"; // "View" | "Edit" | "Full"
     public DateTime CreatedAt { get; set; }
+    // 目前是否因為連續密碼錯誤被鎖定；null 或過去時間代表沒有鎖定。
+    public DateTime? LockedUntil { get; set; }
 }
 
 public class AccountCreateRequest

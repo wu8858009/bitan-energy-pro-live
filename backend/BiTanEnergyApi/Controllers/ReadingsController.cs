@@ -124,6 +124,7 @@ public class ReadingsController : ControllerBase
                 try { System.IO.File.Delete(absPath); } catch { /* best-effort cleanup */ }
             }
         }
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "清除本期抄錄資料", month);
         return Ok();
     }
 

@@ -24,4 +24,9 @@ public class AdminUser
     public string PermissionLevel { get; set; } = "Full";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // 登入安全：連續輸入錯誤密碼達到門檻就鎖定帳號一段時間，防止暴力猜密碼。
+    // 登入成功會重設回 0 / null。
+    public int FailedLoginCount { get; set; } = 0;
+    public DateTime? LockedUntil { get; set; }
 }

@@ -75,6 +75,7 @@ public class SitesController : ControllerBase
             MeterDigits = req.MeterDigits
         };
         await _db.Sites.InsertOneAsync(site);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "新增站點", $"{site.Group}／{site.Name}");
         return Ok(ToDto(site));
     }
 
@@ -110,6 +111,7 @@ public class SitesController : ControllerBase
         site.BasePrev = req.BasePrev;
         site.MeterDigits = req.MeterDigits;
         await _db.Sites.ReplaceOneAsync(s => s.Id == id, site);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "修改站點", $"{site.Group}／{site.Name}");
         return Ok(ToDto(site));
     }
 
@@ -132,6 +134,7 @@ public class SitesController : ControllerBase
         await _db.MonthlyReadings.DeleteManyAsync(r => r.SiteId == id);
         await _db.DailyReadings.DeleteManyAsync(r => r.SiteId == id);
         await _db.Sites.DeleteOneAsync(s => s.Id == id);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "刪除站點", $"{site.Group}／{site.Name}");
         return Ok();
     }
 }

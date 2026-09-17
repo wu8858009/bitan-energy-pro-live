@@ -115,6 +115,7 @@ public class BackupController : ControllerBase
             throw;
         }
 
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "匯入備份還原", $"{payload.Sites.Count} 個站點");
         return Ok();
     }
 
@@ -138,6 +139,7 @@ public class BackupController : ControllerBase
                 try { System.IO.File.Delete(absPath); } catch { /* best-effort cleanup */ }
             }
         }
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "清除全部資料", "");
         return Ok();
     }
 }

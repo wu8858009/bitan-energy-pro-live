@@ -36,7 +36,8 @@ public class AccountsController : ControllerBase
         Role = u.Role,
         AssignedGroups = u.AssignedGroups,
         PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel,
-        CreatedAt = u.CreatedAt
+        CreatedAt = u.CreatedAt,
+        LockedUntil = u.LockedUntil
     };
 
     [HttpGet]
@@ -72,6 +73,7 @@ public class AccountsController : ControllerBase
         };
         user.PasswordHash = Hasher.HashPassword(user, req.Password);
         await _db.AdminUsers.InsertOneAsync(user);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "新增帳號", user.Username);
 
         return Ok(ToDto(user));
     }
@@ -116,6 +118,7 @@ public class AccountsController : ControllerBase
         user.PermissionLevel = req.Role == "Admin" ? AccessControl.PermissionFull : req.PermissionLevel;
 
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == id, user);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "修改帳號", user.Username);
         return Ok(ToDto(user));
     }
 
@@ -137,6 +140,21 @@ public class AccountsController : ControllerBase
         }
 
         await _db.AdminUsers.DeleteOneAsync(u => u.Id == id);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "刪除帳號", user.Username);
         return Ok();
+    }
+
+    // POST /api/accounts/{id}/unlock — 手動解除密碼錯誤鎖定，不用等 15 分鐘
+    [HttpPost("{id}/unlock")]
+    public async Task<IActionResult> Unlock(string id)
+    {
+        var user = await _db.AdminUsers.Find(u => u.Id == id).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        await _db.AdminUsers.ReplaceOneAsync(u => u.Id == id, user);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "手動解鎖帳號", user.Username);
+        return Ok(ToDto(user));
     }
 }

@@ -31,5 +31,8 @@ public static class MongoIndexInitializer
             .Ascending(r => r.Date);
         await db.DailyReadings.Indexes.CreateOneAsync(
             new CreateIndexModel<DailyReading>(dailyReadingKeys, new CreateIndexOptions { Unique = true }));
+
+        var auditLogKeys = Builders<AuditLog>.IndexKeys.Descending(a => a.CreatedAt);
+        await db.AuditLogs.Indexes.CreateOneAsync(new CreateIndexModel<AuditLog>(auditLogKeys));
     }
 }

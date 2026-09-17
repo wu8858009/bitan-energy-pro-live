@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.70">
+<meta name="app-build" content="4.71">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -374,6 +374,11 @@
   }
   .login-error.show{display:block;}
   body.dark-mode .login-error{background:#2a1815; color:#ff9d8a;}
+  .info-banner{
+    background:#eaf2ff; color:#1a56c4; font-size:12.5px; font-weight:700;
+    padding:10px 12px; border-radius:9px; margin-bottom:16px; line-height:1.4;
+  }
+  body.dark-mode .info-banner{background:#16233d; color:#7aa8ff;}
   .login-remember{
     display:flex; align-items:center; gap:8px; margin:-4px 0 18px; font-size:13.5px;
     font-weight:700; color:var(--ink-soft); cursor:pointer; user-select:none;
@@ -771,7 +776,7 @@
    <div class="topbar-inner">
     <div class="title-row">
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.70</span>
+      <span class="pro-badge">PRO v4.71</span>
     </div>
 
     <div class="control-panel">
@@ -1006,7 +1011,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.70 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.71 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1051,7 +1056,7 @@
       </button>
     </div>
 
-    <div class="menu-section" id="dataSecuritySection" style="margin-bottom:0;">
+    <div class="menu-section" id="dataSecuritySection">
       <div class="menu-section-title">資料安全</div>
       <button type="button" class="menu-item danger" id="mClearMonth">
         <span class="mi-ic">🗑️</span>
@@ -1065,8 +1070,49 @@
       </button>
     </div>
 
+    <!-- 企業版 PRO：操作日誌／登入安全設定，僅管理員可見，一般使用者不開放 -->
+    <div class="menu-section" id="securitySettingsSection" style="margin-bottom:0;">
+      <div class="menu-section-title">系統安全 <span class="menu-pro-badge">PRO</span></div>
+      <button type="button" class="menu-item" id="mAuditLogBtn">
+        <span class="mi-ic">📜</span>
+        <span class="mi-label">操作日誌<span class="mi-sub">記錄誰在什麼時候新增／修改／刪除了什麼</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+      <button type="button" class="menu-item" id="mLoginSecurityBtn">
+        <span class="mi-ic">🛡️</span>
+        <span class="mi-label">登入安全設定<span class="mi-sub">密碼錯誤鎖定原則、查看/解除已鎖定帳號</span></span>
+        <span class="mi-chev">›</span>
+      </button>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn-cancel" id="settingsCloseBtn">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 操作日誌（PRO，僅管理員）-->
+<div class="overlay" id="auditLogOverlay">
+  <div class="sheet">
+    <h2>操作日誌 <span class="menu-pro-badge">PRO</span></h2>
+    <div id="auditLogList"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="auditLogCloseBtn">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 登入安全設定（PRO，僅管理員）-->
+<div class="overlay" id="loginSecurityOverlay">
+  <div class="sheet">
+    <h2>登入安全設定 <span class="menu-pro-badge">PRO</span></h2>
+    <div class="info-banner">
+      連續輸入錯誤密碼 5 次會自動鎖定帳號 15 分鐘，防止暴力猜密碼；登入成功會自動重設。
+    </div>
+    <div class="menu-section-title">目前已鎖定的帳號</div>
+    <div id="lockedAccountsList"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="loginSecurityCloseBtn">關閉</button>
     </div>
   </div>
 </div>
@@ -2602,6 +2648,93 @@
     }
   }
 
+  // ---- 操作日誌（PRO，僅管理員）：記錄誰在什麼時候新增/修改/刪除了什麼，
+  // 只涵蓋結構性/管理性的變動（站點、帳號、門市、備份還原/清除、登入安全事件），
+  // 不記錄每一筆抄表讀數的輸入 ----
+  const auditLogOverlay = document.getElementById("auditLogOverlay");
+  document.getElementById("mAuditLogBtn").addEventListener("click", async ()=>{
+    settingsOverlay.classList.remove("open");
+    await loadAuditLog();
+    auditLogOverlay.classList.add("open");
+  });
+  document.getElementById("auditLogCloseBtn").addEventListener("click", ()=>{
+    auditLogOverlay.classList.remove("open");
+    settingsOverlay.classList.add("open");
+  });
+  auditLogOverlay.addEventListener("click", e=>{
+    if(e.target===auditLogOverlay){ auditLogOverlay.classList.remove("open"); settingsOverlay.classList.add("open"); }
+  });
+  async function loadAuditLog(){
+    const list = document.getElementById("auditLogList");
+    list.innerHTML = `<div class="chart-empty">載入中…</div>`;
+    try{
+      const logs = await apiFetch("/audit-logs?limit=100").then(r=>r.json());
+      list.innerHTML = logs.map(a=>{
+        const time = new Date(a.createdAt).toLocaleString("zh-TW", {hour12:false});
+        return `
+        <div class="account-row">
+          <div class="ar-info">
+            <div class="ar-name">${escapeHtml(a.action)}${a.detail ? "・"+escapeHtml(a.detail) : ""}</div>
+            <div class="ar-role">${escapeHtml(a.actorUsername||"--")} ・ ${time}</div>
+          </div>
+        </div>`;
+      }).join("") || `<div class="chart-empty">目前還沒有任何操作紀錄</div>`;
+    }catch(e){
+      list.innerHTML = `<div class="chart-empty">載入失敗：${escapeHtml(e.message||"")}</div>`;
+    }
+  }
+
+  // ---- 登入安全設定（PRO，僅管理員）：顯示鎖定原則、列出目前被鎖定的帳號並可手動解鎖 ----
+  const loginSecurityOverlay = document.getElementById("loginSecurityOverlay");
+  document.getElementById("mLoginSecurityBtn").addEventListener("click", async ()=>{
+    settingsOverlay.classList.remove("open");
+    await loadLockedAccounts();
+    loginSecurityOverlay.classList.add("open");
+  });
+  document.getElementById("loginSecurityCloseBtn").addEventListener("click", ()=>{
+    loginSecurityOverlay.classList.remove("open");
+    settingsOverlay.classList.add("open");
+  });
+  loginSecurityOverlay.addEventListener("click", e=>{
+    if(e.target===loginSecurityOverlay){ loginSecurityOverlay.classList.remove("open"); settingsOverlay.classList.add("open"); }
+  });
+  async function loadLockedAccounts(){
+    const list = document.getElementById("lockedAccountsList");
+    list.innerHTML = `<div class="chart-empty">載入中…</div>`;
+    try{
+      const accounts = await apiFetch("/accounts").then(r=>r.json());
+      const now = Date.now();
+      const locked = accounts.filter(a=>a.lockedUntil && new Date(a.lockedUntil).getTime() > now);
+      list.innerHTML = locked.map(a=>{
+        const until = new Date(a.lockedUntil).toLocaleString("zh-TW", {hour12:false});
+        return `
+        <div class="account-row">
+          <div class="ar-info">
+            <div class="ar-name">${escapeHtml(a.displayName || a.username)}</div>
+            <div class="ar-role">🔒 鎖定至 ${until}</div>
+          </div>
+          <div class="ar-actions">
+            <button type="button" data-unlock-account="${a.id}">解鎖</button>
+          </div>
+        </div>`;
+      }).join("") || `<div class="chart-empty">目前沒有被鎖定的帳號</div>`;
+
+      list.querySelectorAll("[data-unlock-account]").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          try{
+            await apiFetch("/accounts/"+btn.dataset.unlockAccount+"/unlock", {method:"POST"});
+            showToast("已解除鎖定");
+            await loadLockedAccounts();
+          }catch(e){
+            showToast(e.message || "解鎖失敗");
+          }
+        });
+      });
+    }catch(e){
+      list.innerHTML = `<div class="chart-empty">載入失敗：${escapeHtml(e.message||"")}</div>`;
+    }
+  }
+
   function openStoreForm(mode, store){
     editingStoreId = mode === "edit" ? store.id : null;
     document.getElementById("storeFormTitle").textContent = mode === "edit" ? "重新命名門市" : "新增門市";
@@ -2736,6 +2869,7 @@
     document.getElementById("mImportJson").hidden = !isAdmin;
     document.getElementById("priceSettingsSection").hidden = !isAdmin;
     document.getElementById("storeManagementSection").hidden = !isAdmin;
+    document.getElementById("securitySettingsSection").hidden = !isAdmin;
     document.getElementById("addBtn").hidden = !canEdit();
   }
 
@@ -2757,10 +2891,11 @@
         const groupsLabel = a.role === "Admin"
           ? "不受門市限制"
           : ((a.assignedGroups && a.assignedGroups.length) ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、") : "尚未指派任何門市");
+        const isLocked = a.lockedUntil && new Date(a.lockedUntil).getTime() > Date.now();
         return `
         <div class="account-row">
           <div class="ar-info">
-            <div class="ar-name">${escapeHtml(a.displayName || a.username)}</div>
+            <div class="ar-name">${escapeHtml(a.displayName || a.username)}${isLocked ? ' <span style="color:var(--danger);font-size:11px;font-weight:800;">🔒 已鎖定</span>' : ""}</div>
             <div class="ar-role">${roleLabel}${permissionLabel ? "・" + escapeHtml(permissionLabel) : ""} ・ ${groupsLabel}</div>
           </div>
           <div class="ar-actions">

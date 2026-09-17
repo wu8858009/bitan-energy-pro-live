@@ -17,6 +17,10 @@ namespace BiTanEnergyApi.Controllers;
 [Authorize]
 public class AuthController : ControllerBase
 {
+    // 登入安全設定：連續輸入錯誤密碼達到這個次數就鎖定帳號一段時間，防止暴力猜密碼。
+    private const int MaxFailedAttempts = 5;
+    private const int LockoutMinutes = 15;
+
     private readonly MongoContext _db;
     private static readonly PasswordHasher<AdminUser> Hasher = new();
 
@@ -39,11 +43,44 @@ public class AuthController : ControllerBase
     {
         var user = await _db.AdminUsers.Find(u => u.Username == req.Username).FirstOrDefaultAsync();
         if (user == null)
+        {
+            await AuditLogger.LogAsync(_db, req.Username, "登入失敗", "帳號不存在");
             return Unauthorized(new { message = "帳號或密碼錯誤" });
+        }
+
+        if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTime.UtcNow)
+        {
+            var minutesLeft = (int)Math.Ceiling((user.LockedUntil.Value - DateTime.UtcNow).TotalMinutes);
+            return Unauthorized(new { message = $"密碼錯誤次數過多，帳號已鎖定，請 {minutesLeft} 分鐘後再試" });
+        }
 
         var result = Hasher.VerifyHashedPassword(user, user.PasswordHash, req.Password);
         if (result == PasswordVerificationResult.Failed)
-            return Unauthorized(new { message = "帳號或密碼錯誤" });
+        {
+            user.FailedLoginCount += 1;
+            string message;
+            if (user.FailedLoginCount >= MaxFailedAttempts)
+            {
+                user.LockedUntil = DateTime.UtcNow.AddMinutes(LockoutMinutes);
+                user.FailedLoginCount = 0;
+                message = $"密碼錯誤次數過多，帳號已鎖定 {LockoutMinutes} 分鐘";
+                await AuditLogger.LogAsync(_db, user.Username, "帳號鎖定", $"連續輸入錯誤密碼 {MaxFailedAttempts} 次，鎖定 {LockoutMinutes} 分鐘");
+            }
+            else
+            {
+                message = "帳號或密碼錯誤";
+            }
+            await _db.AdminUsers.ReplaceOneAsync(u => u.Id == user.Id, user);
+            await AuditLogger.LogAsync(_db, user.Username, "登入失敗", "密碼錯誤");
+            return Unauthorized(new { message });
+        }
+
+        if (user.FailedLoginCount > 0 || user.LockedUntil.HasValue)
+        {
+            user.FailedLoginCount = 0;
+            user.LockedUntil = null;
+            await _db.AdminUsers.ReplaceOneAsync(u => u.Id == user.Id, user);
+        }
 
         var claims = new List<Claim>
         {
@@ -56,6 +93,7 @@ public class AuthController : ControllerBase
             new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14) });
 
+        await AuditLogger.LogAsync(_db, user.Username, "登入成功", "");
         return Ok(ToMeResponse(user));
     }
 
@@ -98,6 +136,7 @@ public class AuthController : ControllerBase
 
         user.PasswordHash = Hasher.HashPassword(user, req.NewPassword);
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == uid, user);
+        await AuditLogger.LogAsync(_db, user.Username, "修改密碼", "");
         return Ok();
     }
 }

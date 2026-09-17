@@ -16,6 +16,7 @@ public class MongoContext
     public IMongoCollection<AdminUser> AdminUsers { get; }
     public IMongoCollection<Store> Stores { get; }
     public IMongoCollection<DailyReading> DailyReadings { get; }
+    public IMongoCollection<AuditLog> AuditLogs { get; }
 
     public MongoContext(IConfiguration config)
     {
@@ -35,5 +36,6 @@ public class MongoContext
         AdminUsers = Database.GetCollection<AdminUser>("adminUsers");
         Stores = Database.GetCollection<Store>("stores");
         DailyReadings = Database.GetCollection<DailyReading>("dailyReadings");
+        AuditLogs = Database.GetCollection<AuditLog>("auditLogs");
     }
 }

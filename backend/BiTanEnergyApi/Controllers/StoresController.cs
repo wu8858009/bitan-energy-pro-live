@@ -5,6 +5,7 @@ using MongoDB.Driver;
 using BiTanEnergyApi.Data;
 using BiTanEnergyApi.Dtos;
 using BiTanEnergyApi.Models;
+using BiTanEnergyApi.Services;
 
 namespace BiTanEnergyApi.Controllers;
 
@@ -49,6 +50,7 @@ public class StoresController : ControllerBase
 
         var store = new Store { Id = ObjectId.GenerateNewId().ToString(), Name = name };
         await _db.Stores.InsertOneAsync(store);
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "新增門市", name);
         return Ok(new StoreDto { Id = store.Id, Name = store.Name, CreatedAt = store.CreatedAt, SiteCount = 0 });
     }
 
@@ -83,6 +85,8 @@ public class StoresController : ControllerBase
                 await _db.AdminUsers.UpdateOneAsync(x => x.Id == u.Id,
                     Builders<AdminUser>.Update.Set(x => x.AssignedGroups, groups));
             }
+
+            await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "修改門市", $"{oldName} → {newName}");
         }
 
         var siteCount = (int)await _db.Sites.CountDocumentsAsync(s => s.Group == store.Name);
@@ -110,6 +114,7 @@ public class StoresController : ControllerBase
                 Builders<AdminUser>.Update.Set(x => x.AssignedGroups, groups));
         }
 
+        await AuditLogger.LogAsync(_db, User.Identity?.Name ?? "", "刪除門市", store.Name);
         return Ok();
     }
 }

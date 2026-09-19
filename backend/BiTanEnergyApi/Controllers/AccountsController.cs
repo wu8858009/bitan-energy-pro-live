@@ -38,7 +38,8 @@ public class AccountsController : ControllerBase
         PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel,
         CreatedAt = u.CreatedAt,
         LockedUntil = u.LockedUntil,
-        LastSeenAt = u.LastSeenAt
+        LastSeenAt = u.LastSeenAt,
+        IsOnline = u.LastSeenAt.HasValue && (DateTime.UtcNow - u.LastSeenAt.Value).TotalSeconds < 45
     };
 
     [HttpGet]

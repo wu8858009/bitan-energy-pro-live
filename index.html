@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.81">
+<meta name="app-build" content="4.82">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.81</span>
+      <span class="pro-badge">PRO v4.82</span>
     </div>
 
     <div class="control-panel">
@@ -1039,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.81 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.82 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2983,7 +2983,7 @@
           ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、")
           : (a.role === "Admin" ? "不受門市限制" : "尚未指派任何門市");
         const isLocked = a.lockedUntil && new Date(a.lockedUntil).getTime() > Date.now();
-        const isOnline = a.lastSeenAt && (Date.now() - new Date(a.lastSeenAt).getTime()) < 150000;
+        const isOnline = !!a.isOnline;
         if(isOnline) onlineCount++;
         return `
         <div class="account-row">
@@ -4716,19 +4716,30 @@
 
   document.getElementById("mLogout").addEventListener("click", ()=>{
     showConfirm("確定要登出嗎？", async ()=>{
+      try{ await fetch(API_BASE+"/auth/offline", {method:"POST", credentials:"include"}); }catch(e){}
       try{ await fetch(API_BASE+"/auth/logout", {method:"POST", credentials:"include"}); }catch(e){}
       location.reload();
     }, {title:"登出", okLabel:"登出", danger:true});
   });
 
   // ---- init ----
-  // 每分鐘回報一次「我還在線上」，管理員在帳號管理看得到誰目前在線上（超過 2.5 分鐘沒回報就視為離線）
+  // 即時在線回報：每 15 秒回報一次「我還在線上」（超過 45 秒沒回報就視為離線），
+  // 關閉頁面/登出時另外立刻回報離線；管理員開著帳號管理時，列表每 5 秒自動更新。
   let heartbeatTimer = null;
   function startHeartbeat(){
     if(heartbeatTimer) return;
     const beat = ()=>{ if(!document.hidden) apiFetch("/auth/heartbeat", {method:"POST"}).catch(()=>{}); };
-    heartbeatTimer = setInterval(beat, 60000);
+    heartbeatTimer = setInterval(beat, 15000);
+    beat();
     document.addEventListener("visibilitychange", beat);
+    window.addEventListener("pagehide", ()=>{
+      try{ fetch(API_BASE+"/auth/offline", {method:"POST", credentials:"include", keepalive:true}); }catch(e){}
+    });
+    if(currentUserRole === "Admin"){
+      setInterval(()=>{
+        if(accountsOverlay.classList.contains("open") && !document.hidden) loadAccountsList();
+      }, 5000);
+    }
   }
 
   async function bootAppData(){

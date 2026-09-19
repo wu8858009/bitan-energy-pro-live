@@ -13,6 +13,8 @@ public class AccountDto
     public DateTime? LockedUntil { get; set; }
     // 最後一次在線時間（UTC），前端用它判斷是否「目前在線上」。
     public DateTime? LastSeenAt { get; set; }
+    // 由伺服器依自己的時鐘判斷（45 秒內有心跳），避免前端電腦時間不準造成誤判。
+    public bool IsOnline { get; set; }
 }
 
 public class AccountCreateRequest

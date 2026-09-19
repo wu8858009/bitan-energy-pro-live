@@ -154,6 +154,17 @@ public class AuthController : ControllerBase
         return Ok();
     }
 
+    // 關閉頁面／登出時立刻回報離線，管理員那邊不用等心跳逾時才看到人離開。
+    [HttpPost("offline")]
+    public async Task<IActionResult> Offline()
+    {
+        var uid = User.FindFirstValue("uid");
+        if (string.IsNullOrEmpty(uid)) return Unauthorized();
+        await _db.AdminUsers.UpdateOneAsync(u => u.Id == uid,
+            Builders<AdminUser>.Update.Set(u => u.LastSeenAt, (DateTime?)null));
+        return Ok();
+    }
+
     // 讓使用者（任何角色）自己改自己的姓名——不用麻煩管理員代為修改。
     [HttpPut("display-name")]
     public async Task<IActionResult> UpdateDisplayName([FromBody] UpdateDisplayNameRequest req)

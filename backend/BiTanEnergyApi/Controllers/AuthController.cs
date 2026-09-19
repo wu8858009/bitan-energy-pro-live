@@ -94,6 +94,8 @@ public class AuthController : ControllerBase
             new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14) });
 
+        await _db.AdminUsers.UpdateOneAsync(u => u.Id == user.Id,
+            Builders<AdminUser>.Update.Set(u => u.LastSeenAt, DateTime.UtcNow));
         await AuditLogger.LogAsync(_db, user.Username, "登入成功", "");
         return Ok(ToMeResponse(user));
     }
@@ -138,6 +140,17 @@ public class AuthController : ControllerBase
         user.PasswordHash = Hasher.HashPassword(user, req.NewPassword);
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == uid, user);
         await AuditLogger.LogAsync(_db, user.Username, "修改密碼", "");
+        return Ok();
+    }
+
+    // 前端登入後每分鐘呼叫一次，記錄最後在線時間，管理員在帳號管理看得到誰目前在線上。
+    [HttpPost("heartbeat")]
+    public async Task<IActionResult> Heartbeat()
+    {
+        var uid = User.FindFirstValue("uid");
+        if (string.IsNullOrEmpty(uid)) return Unauthorized();
+        await _db.AdminUsers.UpdateOneAsync(u => u.Id == uid,
+            Builders<AdminUser>.Update.Set(u => u.LastSeenAt, DateTime.UtcNow));
         return Ok();
     }
 

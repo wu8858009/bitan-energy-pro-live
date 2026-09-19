@@ -37,7 +37,8 @@ public class AccountsController : ControllerBase
         AssignedGroups = u.AssignedGroups,
         PermissionLevel = u.Role == "Admin" ? AccessControl.PermissionFull : u.PermissionLevel,
         CreatedAt = u.CreatedAt,
-        LockedUntil = u.LockedUntil
+        LockedUntil = u.LockedUntil,
+        LastSeenAt = u.LastSeenAt
     };
 
     [HttpGet]

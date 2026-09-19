@@ -11,6 +11,8 @@ public class AccountDto
     public DateTime CreatedAt { get; set; }
     // 目前是否因為連續密碼錯誤被鎖定；null 或過去時間代表沒有鎖定。
     public DateTime? LockedUntil { get; set; }
+    // 最後一次在線時間（UTC），前端用它判斷是否「目前在線上」。
+    public DateTime? LastSeenAt { get; set; }
 }
 
 public class AccountCreateRequest

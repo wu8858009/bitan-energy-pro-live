@@ -29,4 +29,7 @@ public class AdminUser
     // 登入成功會重設回 0 / null。
     public int FailedLoginCount { get; set; } = 0;
     public DateTime? LockedUntil { get; set; }
+
+    // 最後一次心跳（前端每分鐘回報一次）的時間，用來判斷這個帳號目前是否在線上。
+    public DateTime? LastSeenAt { get; set; }
 }

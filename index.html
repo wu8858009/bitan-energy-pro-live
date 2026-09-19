@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.80">
+<meta name="app-build" content="4.81">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.80</span>
+      <span class="pro-badge">PRO v4.81</span>
     </div>
 
     <div class="control-panel">
@@ -1039,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.80 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.81 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1237,7 +1237,7 @@
 <!-- 帳號管理（僅 Admin 角色可見） -->
 <div class="overlay" id="accountsOverlay">
   <div class="sheet">
-    <h2>帳號管理</h2>
+    <h2>帳號管理 <span id="onlineCount" style="font-size:12px;font-weight:800;color:#1f9d55;"></span></h2>
     <div id="accountsList"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" id="accountsCloseBtn">關閉</button>
@@ -2974,6 +2974,7 @@
     try{
       const accounts = await apiFetch("/accounts").then(r=>r.json());
       const list = document.getElementById("accountsList");
+      let onlineCount = 0;
       list.innerHTML = accounts.map(a=>{
         const roleLabel = ROLE_LABEL[a.role] || a.role;
         const permissionLabel = a.role === "Admin" ? "" : (PERMISSION_LABEL[a.permissionLevel] || a.permissionLevel);
@@ -2982,10 +2983,12 @@
           ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、")
           : (a.role === "Admin" ? "不受門市限制" : "尚未指派任何門市");
         const isLocked = a.lockedUntil && new Date(a.lockedUntil).getTime() > Date.now();
+        const isOnline = a.lastSeenAt && (Date.now() - new Date(a.lastSeenAt).getTime()) < 150000;
+        if(isOnline) onlineCount++;
         return `
         <div class="account-row">
           <div class="ar-info">
-            <div class="ar-name">${escapeHtml(a.displayName || a.username)}${isLocked ? ' <span style="color:var(--danger);font-size:11px;font-weight:800;">🔒 已鎖定</span>' : ""}</div>
+            <div class="ar-name">${escapeHtml(a.displayName || a.username)}${isOnline ? ' <span style="color:#1f9d55;font-size:11px;font-weight:800;">🟢 線上</span>' : ""}${isLocked ?' <span style="color:var(--danger);font-size:11px;font-weight:800;">🔒 已鎖定</span>' : ""}</div>
             <div class="ar-role">${roleLabel}${permissionLabel ? "・" + escapeHtml(permissionLabel) : ""} ・ ${groupsLabel}</div>
           </div>
           <div class="ar-actions">
@@ -2994,6 +2997,7 @@
           </div>
         </div>`;
       }).join("") || `<div class="chart-empty">目前沒有帳號</div>`;
+      document.getElementById("onlineCount").textContent = onlineCount ? "🟢 目前線上 " + onlineCount + " 人" : "";
 
       list.querySelectorAll("[data-edit-account]").forEach(btn=>{
         btn.addEventListener("click", ()=>{
@@ -4718,7 +4722,17 @@
   });
 
   // ---- init ----
+  // 每分鐘回報一次「我還在線上」，管理員在帳號管理看得到誰目前在線上（超過 2.5 分鐘沒回報就視為離線）
+  let heartbeatTimer = null;
+  function startHeartbeat(){
+    if(heartbeatTimer) return;
+    const beat = ()=>{ if(!document.hidden) apiFetch("/auth/heartbeat", {method:"POST"}).catch(()=>{}); };
+    heartbeatTimer = setInterval(beat, 60000);
+    document.addEventListener("visibilitychange", beat);
+  }
+
   async function bootAppData(){
+    startHeartbeat();
     buildMonthOptions();
     try{
       await loadSites();

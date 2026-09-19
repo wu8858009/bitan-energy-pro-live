@@ -39,7 +39,7 @@ public class AccountsController : ControllerBase
         CreatedAt = u.CreatedAt,
         LockedUntil = u.LockedUntil,
         LastSeenAt = u.LastSeenAt,
-        IsOnline = u.LastSeenAt.HasValue && (DateTime.UtcNow - u.LastSeenAt.Value).TotalSeconds < 45
+        IsOnline = u.LastSeenAt.HasValue && (DateTime.UtcNow - u.LastSeenAt.Value).TotalSeconds < 15
     };
 
     [HttpGet]

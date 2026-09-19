@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.74">
+<meta name="app-build" content="4.75">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -793,7 +793,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.74</span>
+      <span class="pro-badge">PRO v4.75</span>
     </div>
 
     <div class="control-panel">
@@ -889,7 +889,7 @@
       </div>
     </div>
     <div class="form-group">
-      <label>上期讀數</label>
+      <label>上期讀數<span class="mi-sub" id="f_prevHint"></span></label>
       <input type="number" id="f_prev" placeholder="0" inputmode="decimal">
     </div>
     <div class="sheet-actions">
@@ -1028,7 +1028,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.74 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.75 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2513,6 +2513,7 @@
     document.getElementById("f_location").value = "";
     document.getElementById("f_meterno").value = "";
     document.getElementById("f_prev").value = "";
+    document.getElementById("f_prevHint").textContent = "只套用於目前選定的 " + currentMonthKey + "，其他月份的「上期」不會帶入這個數字";
     document.getElementById("f_meterdigits").value = "4";
     setTypeChoice("water");
     overlay.classList.add("open");
@@ -2528,6 +2529,11 @@
     document.getElementById("f_location").value = site.location||"";
     document.getElementById("f_meterno").value = site.meterNo||"";
     document.getElementById("f_prev").value = site.basePrev||0;
+    document.getElementById("f_prevHint").textContent = !site.baseMonth
+      ? "舊資料：目前套用於所有沒有上個月讀數的月份；改動數字後只會套用於 " + currentMonthKey
+      : (site.baseMonth === currentMonthKey
+          ? "目前套用於 " + currentMonthKey
+          : "目前基準值屬於 " + site.baseMonth + "；若改動數字，會改成只套用於 " + currentMonthKey);
     document.getElementById("f_meterdigits").value = String(site.meterDigits || 4);
     setTypeChoice(site.type);
     overlay.classList.add("open");

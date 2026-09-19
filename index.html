@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.79">
+<meta name="app-build" content="4.80">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.79</span>
+      <span class="pro-badge">PRO v4.80</span>
     </div>
 
     <div class="control-panel">
@@ -1039,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.79 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.80 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1491,6 +1491,10 @@
   let sites = [];
   let currentFilter = "all";
   let homeGroupFilter = "all";
+  // 整個軟體（統計、匯出、圖表、每日趨勢…）都跟著首頁選定的門市走，這裡統一取得目前範圍內的站點
+  function scopedSites(){
+    return homeGroupFilter === "all" ? sites : sites.filter(s=>(s.group||"未分類") === homeGroupFilter);
+  }
   let editingSiteId = null;
   let chosenType = "water";
   let currentMonthKey = null;
@@ -3146,9 +3150,10 @@
 
   function populateMenuStats(){
     const readings = loadReadings(currentMonthKey);
-    const total = sites.length;
+    const scoped = scopedSites();
+    const total = scoped.length;
     let recorded = 0;
-    sites.forEach(s=>{
+    scoped.forEach(s=>{
       const r = readings[s.id];
       if(r && r.curr !== "" && r.curr !== undefined) recorded++;
     });
@@ -3165,7 +3170,7 @@
     const readings = loadReadings(currentMonthKey);
     const rows = [["群組","站點名稱","位置","錶號","類型","上期","本期","用量","抄錄日"]];
     const dateStr = document.getElementById("recordDateText").textContent;
-    sites.forEach(site=>{
+    scopedSites().forEach(site=>{
       const meta = TYPE_META[site.type];
       const prevVal = getPrevValue(site);
       const r = readings[site.id] || {};
@@ -3189,7 +3194,7 @@
     const readings = loadReadings(currentMonthKey);
     const dateStr = document.getElementById("recordDateText").textContent;
     let tableRows = "";
-    sites.forEach(site=>{
+    scopedSites().forEach(site=>{
       const meta = TYPE_META[site.type];
       const prevVal = getPrevValue(site);
       const r = readings[site.id] || {};
@@ -3460,8 +3465,8 @@
     const q = document.getElementById("chartDailySiteSearch").value.trim().toLowerCase();
     const prev = chartDailySiteId;
     const matches = q
-      ? sites.filter(s=>((s.meterNo||"")+" "+(s.site||"")+" "+(s.location||"")).toLowerCase().includes(q))
-      : sites;
+      ? scopedSites().filter(s=>((s.meterNo||"")+" "+(s.site||"")+" "+(s.location||"")).toLowerCase().includes(q))
+      : scopedSites();
     sel.innerHTML = matches.map(s=>
       `<option value="${s.id}">${escapeHtml(s.site)}${s.location ? "（"+escapeHtml(s.location)+"）" : ""}${s.meterNo ? " · 錶:"+escapeHtml(s.meterNo) : ""}</option>`
     ).join("") || `<option value="">找不到符合的站點</option>`;
@@ -3620,7 +3625,7 @@
 
   function populateChartGroupFilter(){
     const sel = document.getElementById("chartGroupFilter");
-    const groups = [...new Set(sites.map(s=>s.group||"未分類"))];
+    const groups = [...new Set(scopedSites().map(s=>s.group||"未分類"))];
     sel.innerHTML = `<option value="all">全部群組</option>` +
       groups.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
     sel.value = "all";
@@ -3631,7 +3636,8 @@
   });
 
   function filteredSites(){
-    return chartGroupFilter === "all" ? sites : sites.filter(s=>(s.group||"未分類")===chartGroupFilter);
+    const base = scopedSites();
+    return chartGroupFilter === "all" ? base : base.filter(s=>(s.group||"未分類")===chartGroupFilter);
   }
 
   // 取得去年（或N年前）同月份的 key，例如 2026-08 往前1年 → 2025-08

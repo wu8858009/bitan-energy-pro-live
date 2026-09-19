@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.75">
+<meta name="app-build" content="4.76">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -151,6 +151,16 @@
     display:flex; align-items:center; justify-content:center;
   }
   body.dark-mode .search-scan-btn{background:#1a2337; color:var(--ink-soft);}
+  /* 搜尋框有內容時，在相機按鈕左邊出現 ✕ 一鍵清除 */
+  .search-clear-btn{
+    position:absolute; right:50px; top:50%; transform:translateY(-50%);
+    width:30px; height:30px; border-radius:50%; border:none; display:none;
+    background:#d8dce4; color:#4a5468; font-size:14px; font-weight:800; line-height:1;
+    align-items:center; justify-content:center;
+  }
+  .search-input.has-value ~ .search-clear-btn{display:flex;}
+  .search-input.has-value{padding-right:88px;}
+  body.dark-mode .search-clear-btn{background:#2a3550; color:#cfd6e6;}
   /* 表單欄位內嵌的小按鈕（例如錶號欄位的條碼掃描），沿用密碼欄位眼睛按鈕的樣式 */
   .input-with-icon{position:relative;}
   .input-with-icon input{padding-right:42px;}
@@ -793,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.75</span>
+      <span class="pro-badge">PRO v4.76</span>
     </div>
 
     <div class="control-panel">
@@ -818,6 +828,7 @@
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
       <input class="search-input" id="searchBox" placeholder="搜尋店名、編號 or 位置...">
+      <button type="button" class="search-clear-btn" id="searchClearBtn" title="清除搜尋" aria-label="清除搜尋">✕</button>
       <button type="button" class="search-scan-btn" id="scanBarcodeBtn" title="掃描錶號條碼" aria-label="掃描錶號條碼">📷</button>
     </div>
 
@@ -1028,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.75 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.76 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -4232,6 +4243,12 @@
 
   // ---- Search ----
   document.getElementById("searchBox").addEventListener("input", render);
+  document.getElementById("searchClearBtn").addEventListener("click", ()=>{
+    const box = document.getElementById("searchBox");
+    box.value = "";
+    box.dispatchEvent(new Event("input", {bubbles:true}));
+    box.focus();
+  });
 
   // 搜尋（不管是掃描器帶入還是手動輸入）剛好篩出一張卡片時，直接把游標帶到那張卡片的
   // 「本期」輸入框，讓掃完錶號就能馬上打讀數，不用再另外點一次輸入框。只在掃描流程裡

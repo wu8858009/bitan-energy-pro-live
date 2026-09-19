@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.78">
+<meta name="app-build" content="4.79">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.78</span>
+      <span class="pro-badge">PRO v4.79</span>
     </div>
 
     <div class="control-panel">
@@ -1039,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.78 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.79 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2460,9 +2460,12 @@
 
   function updateSummary(readings){
     let water=0, elec=0, gas=0;
+    const summaryQuery = document.getElementById("searchBox").value.trim().toLowerCase();
     sites.forEach(site=>{
       // 上方總計跟著首頁門市下拉選單走：只統計目前選定的那個門市
       if(homeGroupFilter !== "all" && (site.group||"未分類") !== homeGroupFilter) return;
+      // 搜尋框有內容時，總計也只統計搜尋到的站點，跟畫面上顯示的卡片一致
+      if(summaryQuery && !(site.group+" "+site.site+" "+site.location+" "+site.meterNo).toLowerCase().includes(summaryQuery)) return;
       const r = readings[site.id];
       if(!r || r.curr === "" || r.curr===undefined) return;
       const prevVal = getPrevValue(site);

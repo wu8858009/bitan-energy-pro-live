@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.76">
+<meta name="app-build" content="4.77">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.76</span>
+      <span class="pro-badge">PRO v4.77</span>
     </div>
 
     <div class="control-panel">
@@ -1039,7 +1039,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.76 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.77 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1262,11 +1262,11 @@
       <label>角色</label>
       <select id="af_role">
         <option value="User" selected>一般使用者</option>
-        <option value="Admin">管理員（可管理帳號，不受門市限制）</option>
+        <option value="Admin">管理員（可管理帳號；可選擇限定可管理的門市）</option>
       </select>
     </div>
     <div class="form-group" id="af_groupsGroup">
-      <label>可管理門市（僅一般使用者適用，不勾選表示看不到任何站點）</label>
+      <label id="af_groupsLabel">可管理門市（不勾選表示看不到任何站點）</label>
       <div class="group-chips" id="af_groupsList"></div>
     </div>
     <div class="form-group" id="af_permissionGroup">
@@ -1502,6 +1502,12 @@
   let currentUsername = "";
   // Admin 看得到所有門市（含還沒有站點的空門市），跟一般使用者只看自己被指派的門市不同來源
   let adminKnownStoreNames = [];
+  // 這個帳號能看到/新增的門市：一般使用者只有被指派的；管理員如果也被勾選了指派門市就照那個範圍，
+  // 沒勾任何門市則維持不受限（門市管理裡登記的全部門市）。
+  function storeNamesForCurrentUser(){
+    if(currentUserRole === "User" || currentUserAssignedGroups.length > 0) return currentUserAssignedGroups;
+    return adminKnownStoreNames;
+  }
   async function refreshAdminKnownStoreNames(){
     if(currentUserRole !== "Admin") return;
     try{
@@ -2011,7 +2017,7 @@
     const sel = document.getElementById("homeGroupFilterSelect");
     const wrap = document.getElementById("homeGroupFilterWrap");
     const divider = document.getElementById("homeGroupFilterDivider");
-    const groups = [...new Set(currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames)]
+    const groups = [...new Set(storeNamesForCurrentUser())]
       .sort((a,b)=>a.localeCompare(b,"zh-Hant"));
     if(groups.length <= 1){
       wrap.hidden = true;
@@ -2491,7 +2497,7 @@
   // 管理員可以選全部門市。
   function syncGroupFieldMode(currentValue){
     const select = document.getElementById("f_group_select");
-    const options = currentUserRole === "User" ? currentUserAssignedGroups : adminKnownStoreNames;
+    const options = storeNamesForCurrentUser();
     if(options.length === 0){
       select.innerHTML = `<option value="">尚無門市，請先到「設定 → 門市管理」新增</option>`;
     }else{
@@ -2512,7 +2518,7 @@
       showToast("你尚未被指派任何門市，請聯絡管理員設定後再新增站點");
       return;
     }
-    if(currentUserRole === "Admin" && adminKnownStoreNames.length === 0){
+    if(currentUserRole === "Admin" && storeNamesForCurrentUser().length === 0){
       showToast("尚未建立任何門市，請先到「設定 → 門市管理」新增");
       return;
     }
@@ -2962,9 +2968,10 @@
       list.innerHTML = accounts.map(a=>{
         const roleLabel = ROLE_LABEL[a.role] || a.role;
         const permissionLabel = a.role === "Admin" ? "" : (PERMISSION_LABEL[a.permissionLevel] || a.permissionLevel);
-        const groupsLabel = a.role === "Admin"
-          ? "不受門市限制"
-          : ((a.assignedGroups && a.assignedGroups.length) ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、") : "尚未指派任何門市");
+        const hasGroups = a.assignedGroups && a.assignedGroups.length;
+        const groupsLabel = hasGroups
+          ? "可管理：" + a.assignedGroups.map(escapeHtml).join("、")
+          : (a.role === "Admin" ? "不受門市限制" : "尚未指派任何門市");
         const isLocked = a.lockedUntil && new Date(a.lockedUntil).getTime() > Date.now();
         return `
         <div class="account-row">
@@ -3033,7 +3040,9 @@
   }
   function syncGroupsGroupVisibility(){
     const isAdminRole = document.getElementById("af_role").value === "Admin";
-    document.getElementById("af_groupsGroup").hidden = isAdminRole;
+    document.getElementById("af_groupsLabel").textContent = isAdminRole
+      ? "可管理門市（不勾選表示不受限制，看得到全部門市）"
+      : "可管理門市（不勾選表示看不到任何站點）";
     document.getElementById("af_permissionGroup").hidden = isAdminRole;
   }
   document.getElementById("af_role").addEventListener("change", syncGroupsGroupVisibility);
@@ -3068,7 +3077,7 @@
     const username = document.getElementById("af_username").value.trim();
     const password = document.getElementById("af_password").value;
     const role = document.getElementById("af_role").value;
-    const assignedGroups = role === "Admin" ? [] : [...selectedGroups];
+    const assignedGroups = [...selectedGroups];
     const permissionLevel = document.getElementById("af_permission").value;
     const btn = document.getElementById("accountFormSaveBtn");
     if(!username){ showToast("請輸入帳號名稱"); return; }

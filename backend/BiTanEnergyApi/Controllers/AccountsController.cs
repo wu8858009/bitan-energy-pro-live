@@ -68,7 +68,7 @@ public class AccountsController : ControllerBase
             DisplayName = (req.DisplayName ?? "").Trim(),
             Username = req.Username,
             Role = req.Role,
-            AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>()),
+            AssignedGroups = req.AssignedGroups ?? new List<string>(),
             PermissionLevel = req.Role == "Admin" ? AccessControl.PermissionFull : req.PermissionLevel
         };
         user.PasswordHash = Hasher.HashPassword(user, req.Password);
@@ -114,7 +114,7 @@ public class AccountsController : ControllerBase
                 return BadRequest(new { message = "至少需要保留一個管理員帳號" });
         }
         user.Role = req.Role;
-        user.AssignedGroups = req.Role == "Admin" ? new List<string>() : (req.AssignedGroups ?? new List<string>());
+        user.AssignedGroups = req.AssignedGroups ?? new List<string>();
         user.PermissionLevel = req.Role == "Admin" ? AccessControl.PermissionFull : req.PermissionLevel;
 
         await _db.AdminUsers.ReplaceOneAsync(u => u.Id == id, user);

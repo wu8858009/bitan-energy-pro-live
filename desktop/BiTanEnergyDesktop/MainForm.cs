@@ -17,7 +17,7 @@ public class MainForm : Form
         Height = 860;
         MinimumSize = new Size(760, 560);
         StartPosition = FormStartPosition.CenterScreen;
-        try { Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "app.ico")); } catch { /* icon is cosmetic only */ }
+        try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { /* icon is cosmetic only */ }
 
         Controls.Add(_webView);
         Load += MainForm_Load;

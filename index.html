@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.85">
+<meta name="app-build" content="4.86">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -361,6 +361,9 @@
     width:100%; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:15px; outline:none; background:#fbfcfe;
   }
   .form-group input:focus, .form-group select:focus{border-color:var(--navy-800);}
+  /* 有實際數值時反白提示，一眼看出這個欄位不是預設的 0 */
+  .form-group input.has-value{background:#eaf2ff; border-color:var(--blue-tag); font-weight:700;}
+  body.dark-mode .form-group input.has-value{background:#16233d; color:#fff;}
   .pwd-field{position:relative;}
   .pwd-field input{padding-right:42px;}
   /* 關掉 Edge/Chromium 內建的密碼欄位「顯示密碼」眼睛圖示，避免跟我們自己畫的
@@ -803,7 +806,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.85</span>
+      <span class="pro-badge">PRO v4.86</span>
     </div>
 
     <div class="control-panel">
@@ -1042,7 +1045,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.85 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.86 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2526,6 +2529,14 @@
     return document.getElementById("f_group_select").value;
   }
 
+  // 上期讀數有實際數值（不是預設的 0 或空白）時反白提示
+  function syncPrevFieldHighlight(){
+    const el = document.getElementById("f_prev");
+    const v = parseFloat(el.value);
+    el.classList.toggle("has-value", !isNaN(v) && v !== 0);
+  }
+  document.getElementById("f_prev").addEventListener("input", syncPrevFieldHighlight);
+
   function openAddSheet(){
     if(!canEdit()){
       showToast("你的帳號只有檢視權限，無法新增站點");
@@ -2548,6 +2559,7 @@
     document.getElementById("f_meterno").value = "";
     document.getElementById("f_prev").value = "";
     document.getElementById("f_prevHint").textContent = "只套用於目前選定的 " + currentMonthKey + "，其他月份的「上期」不會帶入這個數字";
+    syncPrevFieldHighlight();
     document.getElementById("f_meterdigits").value = "4";
     setTypeChoice("water");
     overlay.classList.add("open");
@@ -2563,6 +2575,7 @@
     document.getElementById("f_location").value = site.location||"";
     document.getElementById("f_meterno").value = site.meterNo||"";
     document.getElementById("f_prev").value = site.basePrev||0;
+    syncPrevFieldHighlight();
     document.getElementById("f_prevHint").textContent = !site.baseMonth
       ? "舊資料：目前套用於所有沒有上個月讀數的月份；改動數字後只會套用於 " + currentMonthKey
       : (site.baseMonth === currentMonthKey

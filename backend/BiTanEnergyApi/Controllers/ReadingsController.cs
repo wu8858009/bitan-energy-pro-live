@@ -159,7 +159,9 @@ public class ReadingsController : ControllerBase
     {
         if (!IsValidMonthKey(month)) return BadRequest(new { message = "月份格式錯誤" });
         if (!await CanAccessSiteAsync(siteId)) return Forbid();
-        if (!await AccessControl.HasPermissionAsync(User, _db, AccessControl.PermissionEdit)) return Forbid();
+        // 上期智慧補正只有系統管理員能用，一般使用者（不論權限等級）都不行——
+        // 跟一般的讀數編輯權限（PermissionEdit）刻意分開判斷。
+        if (!User.IsInRole("Admin")) return Forbid();
 
         var filter = Builders<MonthlyReading>.Filter.Where(r => r.SiteId == siteId && r.MonthKey == month);
         var update = Builders<MonthlyReading>.Update

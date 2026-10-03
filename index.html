@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.84">
+<meta name="app-build" content="4.85">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -803,7 +803,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.84</span>
+      <span class="pro-badge">PRO v4.85</span>
     </div>
 
     <div class="control-panel">
@@ -1042,7 +1042,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.84 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.85 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2105,7 +2105,7 @@
 
         <div class="reading-row">
           <div class="field-label"><span>上期</span>
-            ${canEdit() ? `<button class="lock-btn" data-unlock="${site.id}">🔄 智慧補正</button>` : ""}
+            ${currentUserRole === "Admin" ? `<button class="lock-btn" data-unlock="${site.id}">🔄 智慧補正</button>` : ""}
           </div>
           <div class="field-label"><span>本期 (限${site.meterDigits||4}位)</span></div>
           <div class="prev-field" id="prevField_${site.id}">${formatNum(prevVal)}</div>
@@ -2314,6 +2314,11 @@
     return !!(entry && entry.prevOverride !== undefined && entry.prevOverride !== null);
   }
   function openPrevCorrection(siteId){
+    // 上期智慧補正只有系統管理員能用，跟後端 prev-override 的權限判斷一致
+    if(currentUserRole !== "Admin"){
+      showToast("只有系統管理員能修改上期讀數");
+      return;
+    }
     const site = sites.find(s=>s.id===siteId);
     if(!site) return;
     prevCorrectionSiteId = siteId;

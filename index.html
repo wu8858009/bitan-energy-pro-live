@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.89">
+<meta name="app-build" content="4.90">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -806,7 +806,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.89</span>
+      <span class="pro-badge">PRO v4.90</span>
     </div>
 
     <div class="control-panel">
@@ -1045,7 +1045,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.89 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.90 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1176,9 +1176,17 @@
       <label>瓦斯單價（NT$ / 度）</label>
       <input type="number" id="setPriceGas" placeholder="0" inputmode="decimal" min="0" step="0.1">
     </div>
-    <div class="form-group" style="margin-bottom:0;">
+    <div class="form-group">
       <label>每月預算（NT$，選填）</label>
       <input type="number" id="setBudget" placeholder="0" inputmode="decimal" min="0" step="1">
+    </div>
+    <div class="form-group">
+      <label>瓦斯每度換算公斤數（kg / 度）</label>
+      <input type="number" id="setGasKgPerUnit" placeholder="4.12" inputmode="decimal" min="0" step="0.01">
+    </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label>每月瓦斯公斤數預算（kg，選填）</label>
+      <input type="number" id="setGasKgBudget" placeholder="0" inputmode="decimal" min="0" step="1">
     </div>
     <div class="sheet-actions">
       <button class="btn-cancel" id="priceSettingsCloseBtn">關閉</button>
@@ -1546,7 +1554,9 @@
   // 顯示設定（單價、預算）僅為前端偏好，保留在本機瀏覽器
   const LS_SETTINGS = "bitan_settings_v1";
 
-  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, budget:0};
+  // 瓦斯 1 度換算公斤數，預設值依照抄表試算表的「轉公斤」係數
+  const DEFAULT_GAS_KG_PER_UNIT = 4.12;
+  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, budget:0, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT};
   function loadSettings(){
     try{
       const raw = JSON.parse(localStorage.getItem(LS_SETTINGS) || "null");
@@ -1557,7 +1567,9 @@
             elec: Number(raw.unitPrice.elec) || 0,
             gas: Number(raw.unitPrice.gas) || 0
           },
-          budget: Number(raw.budget) || 0
+          budget: Number(raw.budget) || 0,
+          gasKgBudget: Number(raw.gasKgBudget) || 0,
+          gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0)
         };
       }
     }catch(e){}
@@ -3159,6 +3171,8 @@
     document.getElementById("setPriceElec").value = appSettings.unitPrice.elec || "";
     document.getElementById("setPriceGas").value = appSettings.unitPrice.gas || "";
     document.getElementById("setBudget").value = appSettings.budget || "";
+    document.getElementById("setGasKgPerUnit").value = appSettings.gasKgPerUnit;
+    document.getElementById("setGasKgBudget").value = appSettings.gasKgBudget || "";
   }
   function bindSettingInput(inputId, applyFn){
     document.getElementById(inputId).addEventListener("input", (e)=>{
@@ -3170,6 +3184,12 @@
   bindSettingInput("setPriceElec", v=>appSettings.unitPrice.elec = v);
   bindSettingInput("setPriceGas", v=>appSettings.unitPrice.gas = v);
   bindSettingInput("setBudget", v=>appSettings.budget = v);
+  bindSettingInput("setGasKgBudget", v=>appSettings.gasKgBudget = v);
+  document.getElementById("setGasKgPerUnit").addEventListener("input", (e)=>{
+    const v = parseFloat(e.target.value);
+    appSettings.gasKgPerUnit = isNaN(v) ? DEFAULT_GAS_KG_PER_UNIT : Math.max(0, v);
+    persistSettings();
+  });
   document.getElementById("menuCloseBtn").addEventListener("click", ()=>menuOverlay.classList.remove("open"));
   menuOverlay.addEventListener("click", e=>{ if(e.target===menuOverlay) menuOverlay.classList.remove("open"); });
 
@@ -4159,7 +4179,7 @@
     const types = chartActiveType === "all" ? ["water","elec","gas"] : [chartActiveType];
     const priced = types.filter(t=>appSettings.unitPrice[t]>0);
     if(priced.length===0){
-      box.innerHTML = `<div class="chart-empty">請至選單設定單價以顯示費用試算（選單 → 費用與預算設定）</div>`;
+      box.innerHTML = `<div class="chart-empty">請至選單設定單價以顯示費用試算（選單 → 費用與預算設定）</div>` + gasKgBudgetHtml(latestMonthTotals, types);
       return;
     }
 
@@ -4196,7 +4216,24 @@
       }
     }
 
-    box.innerHTML = html;
+    box.innerHTML = html + gasKgBudgetHtml(latestMonthTotals, types);
+  }
+
+  // 瓦斯公斤數預算：本期瓦斯用量（度）× 換算係數 = 公斤，與金額預算分開顯示
+  function gasKgBudgetHtml(latestMonthTotals, types){
+    if(!types.includes("gas") || !(appSettings.gasKgBudget > 0)) return "";
+    const gasKg = Math.max(0, latestMonthTotals.gas || 0) * appSettings.gasKgPerUnit;
+    const pct = (gasKg/appSettings.gasKgBudget)*100;
+    const state = pct<80 ? "ok" : pct<=100 ? "warn" : "over";
+    let out = `
+      <div class="budget-bar-wrap">
+        <div class="budget-bar-track"><div class="budget-bar-fill ${state}" style="width:${Math.min(100,pct)}%"></div></div>
+        <div class="budget-bar-label">瓦斯預算 ${formatNum(appSettings.gasKgBudget)} kg ・ 本期 ${formatNum(gasKg)} kg（已使用 ${pct.toFixed(0)}%）</div>
+      </div>`;
+    if(state === "over"){
+      out += `<div class="anomaly-item severe"><span class="ai-ic">🚨</span><span class="ai-text">本期瓦斯用量已超出公斤數預算 <b>${formatNum(gasKg-appSettings.gasKgBudget)} kg</b></span></div>`;
+    }
+    return out;
   }
 
   // ---- 異常用量警示：本期用量較上期暴增，或讀數疑似輸入錯誤 ----

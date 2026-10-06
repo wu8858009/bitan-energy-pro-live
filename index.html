@@ -3214,6 +3214,16 @@
     showToast("已匯出 CSV 報表");
   });
 
+  // 報表視窗的頂部工具列（手機上特別需要）：列印、退出。退出先試 window.close()，
+  // 手機瀏覽器若不允許關閉就退回上一頁。列印時自動隱藏。
+  const REPORT_TOOLBAR_CSS = `
+        .rpt-toolbar{position:fixed; top:0; left:0; right:0; background:#0d2140; padding:10px 12px; display:flex; gap:8px; z-index:10;}
+        .rpt-toolbar button{flex:1; border:none; border-radius:10px; padding:12px; font-size:15px; font-weight:800; color:#fff; background:rgba(255,255,255,.18); cursor:pointer;}
+        .rpt-toolbar .rpt-exit{background:#e0483e;}
+        body{padding-top:76px !important;}
+        @media print{ .rpt-toolbar{display:none;} body{padding-top:12px !important;} }`;
+  const REPORT_TOOLBAR_HTML = `<div class="rpt-toolbar"><button type="button" onclick="window.print()">🖨 列印 / 存PDF</button><button type="button" class="rpt-exit" onclick="rptExit()">✕ 退出</button></div><script>function rptExit(){ window.close(); setTimeout(function(){ if(!window.closed){ history.back(); } }, 200); }<\/script>`;
+
   // ---- 列印 / 匯出 PDF：開新視窗產生簡潔報表後呼叫列印 ----
   document.getElementById("mExportPdf").addEventListener("click", ()=>{
     const readings = loadReadings(currentMonthKey);
@@ -3249,7 +3259,8 @@
         th{background:#0d2140; color:#fff; font-weight:700;}
         tr:nth-child(even){background:#f6f7fa;}
         @media print{ body{padding:12px;} }
-      </style></head><body>
+        ${REPORT_TOOLBAR_CSS}
+      </style></head><body>${REPORT_TOOLBAR_HTML}
       <h1>碧潭能源管理系統 － ${currentMonthKey} 抄錄總表</h1>
       <div class="sub">抄錄日：${dateStr} ｜ 匯出時間：${new Date().toLocaleString("zh-TW")}</div>
       <table>
@@ -3321,7 +3332,8 @@
         th{background:#0d2140; color:#fff; font-weight:700;}
         tr:nth-child(even){background:#f6f7fa;}
         @media print{ body{padding:12px;} }
-      </style></head><body>
+        ${REPORT_TOOLBAR_CSS}
+      </style></head><body>${REPORT_TOOLBAR_HTML}
       <h1>碧潭能源管理系統 － ${currentMonthKey} 會計使用報表</h1>
       <div class="sub">抄錄日：${dateStr} ｜ 單價：水 $${formatNum(priceWater)}/度、電 $${formatNum(priceElec)}/度、瓦斯 $${formatNum(priceGas)}/度 ｜ 匯出時間：${new Date().toLocaleString("zh-TW")}</div>
       <table>
@@ -4341,7 +4353,8 @@
         th{background:#0d2140; color:#fff; font-weight:700;}
         tr:nth-child(even){background:#f6f7fa;}
         @media print{ body{padding:12px;} }
-      </style></head><body>
+        ${REPORT_TOOLBAR_CSS}
+      </style></head><body>${REPORT_TOOLBAR_HTML}
       <h1>碧潭能源管理系統 － 用量趨勢分析報告</h1>
       <div class="sub">篩選群組：${escapeHtml(groupLabel)} ｜ 類型：${typeLabel} ｜ 期間：近${chartPeriodMonths}期（至 ${currentMonthKey}）</div>
       <div class="sub">匯出時間：${new Date().toLocaleString("zh-TW")}</div>

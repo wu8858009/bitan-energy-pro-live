@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.90">
+<meta name="app-build" content="4.91">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -806,7 +806,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.90</span>
+      <span class="pro-badge">PRO v4.91</span>
     </div>
 
     <div class="control-panel">
@@ -1045,7 +1045,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.90 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.91 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3300,6 +3300,7 @@
     const priceWater = appSettings.unitPrice.water || 0;
     const priceElec = appSettings.unitPrice.elec || 0;
     const priceGas = appSettings.unitPrice.gas || 0;
+    const kgPerUnit = appSettings.gasKgPerUnit;
     if(priceWater<=0 && priceElec<=0 && priceGas<=0){
       showToast("請先到「設定 → 費用與預算設定」設定單價，才能算出金額");
       return;
@@ -3320,13 +3321,15 @@
     });
     const groups = Object.keys(byGroup).sort((a,b)=>a.localeCompare(b,"zh-Hant"));
 
-    let totalWaterUsage=0, totalElecUsage=0, totalGasUsage=0, grandTotal=0;
+    let totalWaterUsage=0, totalElecUsage=0, totalGasUsage=0, totalGasKg=0, grandTotal=0;
     let rows = "";
     groups.forEach(g=>{
       const u = byGroup[g];
-      const wAmt = u.water * priceWater, eAmt = u.elec * priceElec, gAmt = u.gas * priceGas;
+      // 瓦斯以公斤計價：度數 × 換算係數 = 公斤，再乘以瓦斯單價（與抄表試算表一致）
+      const gasKg = u.gas * kgPerUnit;
+      const wAmt = u.water * priceWater, eAmt = u.elec * priceElec, gAmt = gasKg * priceGas;
       const subtotal = wAmt + eAmt + gAmt;
-      totalWaterUsage += u.water; totalElecUsage += u.elec; totalGasUsage += u.gas; grandTotal += subtotal;
+      totalWaterUsage += u.water; totalElecUsage += u.elec; totalGasUsage += u.gas; totalGasKg += gasKg; grandTotal += subtotal;
       rows += `<tr>
         <td>${escapeHtml(g)}</td>
         <td style="text-align:right">${formatNum(u.water)}</td>
@@ -3334,11 +3337,12 @@
         <td style="text-align:right">${formatNum(u.elec)}</td>
         <td style="text-align:right">$${formatNum(eAmt)}</td>
         <td style="text-align:right">${formatNum(u.gas)}</td>
+        <td style="text-align:right">${formatNum(gasKg)}</td>
         <td style="text-align:right">$${formatNum(gAmt)}</td>
         <td style="text-align:right;font-weight:700">$${formatNum(subtotal)}</td>
       </tr>`;
     });
-    const totalWaterAmt = totalWaterUsage*priceWater, totalElecAmt = totalElecUsage*priceElec, totalGasAmt = totalGasUsage*priceGas;
+    const totalWaterAmt = totalWaterUsage*priceWater, totalElecAmt = totalElecUsage*priceElec, totalGasAmt = totalGasKg*priceGas;
 
     const printWin = window.open("", "_blank");
     printWin.document.write(`<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8">
@@ -3355,9 +3359,9 @@
         ${REPORT_TOOLBAR_CSS}
       </style></head><body>${REPORT_TOOLBAR_HTML}
       <h1>碧潭能源管理系統 － ${currentMonthKey} 會計使用報表</h1>
-      <div class="sub">抄錄日：${dateStr} ｜ 單價：水 $${formatNum(priceWater)}/度、電 $${formatNum(priceElec)}/度、瓦斯 $${formatNum(priceGas)}/度 ｜ 匯出時間：${new Date().toLocaleString("zh-TW")}</div>
+      <div class="sub">抄錄日：${dateStr} ｜ 單價：水 $${formatNum(priceWater)}/度、電 $${formatNum(priceElec)}/度、瓦斯 $${formatNum(priceGas)}/公斤（1 度 = ${kgPerUnit} 公斤） ｜ 匯出時間：${new Date().toLocaleString("zh-TW")}</div>
       <table>
-        <thead><tr><th>門市</th><th>水(度)</th><th>水費</th><th>電(度)</th><th>電費</th><th>瓦斯(度)</th><th>瓦斯費</th><th>小計</th></tr></thead>
+        <thead><tr><th>門市</th><th>水(度)</th><th>水費</th><th>電(度)</th><th>電費</th><th>瓦斯(度)</th><th>瓦斯(公斤)</th><th>瓦斯費</th><th>小計</th></tr></thead>
         <tbody>${rows}
           <tr style="font-weight:800;background:#eaf2ff;">
             <td>總計</td>
@@ -3366,6 +3370,7 @@
             <td style="text-align:right">${formatNum(totalElecUsage)}</td>
             <td style="text-align:right">$${formatNum(totalElecAmt)}</td>
             <td style="text-align:right">${formatNum(totalGasUsage)}</td>
+            <td style="text-align:right">${formatNum(totalGasKg)}</td>
             <td style="text-align:right">$${formatNum(totalGasAmt)}</td>
             <td style="text-align:right">$${formatNum(grandTotal)}</td>
           </tr>

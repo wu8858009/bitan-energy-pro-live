@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.92">
+<meta name="app-build" content="4.93">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -806,7 +806,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.92</span>
+      <span class="pro-badge">PRO v4.93</span>
     </div>
 
     <div class="control-panel">
@@ -1045,7 +1045,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.92 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.93 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1175,10 +1175,6 @@
     <div class="form-group">
       <label>瓦斯單價（NT$ / 度）</label>
       <input type="number" id="setPriceGas" placeholder="0" inputmode="decimal" min="0" step="0.1">
-    </div>
-    <div class="form-group">
-      <label>每月預算（NT$，選填）</label>
-      <input type="number" id="setBudget" placeholder="0" inputmode="decimal" min="0" step="1">
     </div>
     <div class="form-group">
       <label>瓦斯每度換算公斤數（kg / 度）</label>
@@ -1556,7 +1552,7 @@
 
   // 瓦斯 1 度換算公斤數，預設值依照抄表試算表的「轉公斤」係數
   const DEFAULT_GAS_KG_PER_UNIT = 4.12;
-  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, budget:0, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT};
+  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT};
   function loadSettings(){
     try{
       const raw = JSON.parse(localStorage.getItem(LS_SETTINGS) || "null");
@@ -1567,7 +1563,6 @@
             elec: Number(raw.unitPrice.elec) || 0,
             gas: Number(raw.unitPrice.gas) || 0
           },
-          budget: Number(raw.budget) || 0,
           gasKgBudget: Number(raw.gasKgBudget) || 0,
           gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0)
         };
@@ -3170,7 +3165,6 @@
     document.getElementById("setPriceWater").value = appSettings.unitPrice.water || "";
     document.getElementById("setPriceElec").value = appSettings.unitPrice.elec || "";
     document.getElementById("setPriceGas").value = appSettings.unitPrice.gas || "";
-    document.getElementById("setBudget").value = appSettings.budget || "";
     document.getElementById("setGasKgPerUnit").value = appSettings.gasKgPerUnit;
     document.getElementById("setGasKgBudget").value = appSettings.gasKgBudget || "";
   }
@@ -3183,7 +3177,6 @@
   bindSettingInput("setPriceWater", v=>appSettings.unitPrice.water = v);
   bindSettingInput("setPriceElec", v=>appSettings.unitPrice.elec = v);
   bindSettingInput("setPriceGas", v=>appSettings.unitPrice.gas = v);
-  bindSettingInput("setBudget", v=>appSettings.budget = v);
   bindSettingInput("setGasKgBudget", v=>appSettings.gasKgBudget = v);
   document.getElementById("setGasKgPerUnit").addEventListener("input", (e)=>{
     const v = parseFloat(e.target.value);
@@ -4236,19 +4229,6 @@
         <span class="cost-total-amt">$${formatNum(totalCost)}</span>
       </div>`;
 
-    if(appSettings.budget > 0){
-      const pct = (totalCost/appSettings.budget)*100;
-      const state = pct<80 ? "ok" : pct<=100 ? "warn" : "over";
-      html += `
-        <div class="budget-bar-wrap">
-          <div class="budget-bar-track"><div class="budget-bar-fill ${state}" style="width:${Math.min(100,pct)}%"></div></div>
-          <div class="budget-bar-label">預算 $${formatNum(appSettings.budget)} ・ 已使用 ${pct.toFixed(0)}%</div>
-        </div>`;
-      if(state === "over"){
-        html += `<div class="anomaly-item severe"><span class="ai-ic">🚨</span><span class="ai-text">本期預估費用已超出預算 <b>$${formatNum(totalCost-appSettings.budget)}</b>，請留意用量控管</span></div>`;
-      }
-    }
-
     box.innerHTML = html + gasKgBudgetHtml(latestMonthTotals, types);
   }
 
@@ -4384,14 +4364,10 @@
         totalCost += cost;
         return `<tr><td>${CHART_LABELS[t]}</td><td style="text-align:right">${formatNum(usage)}</td><td style="text-align:right">$${formatNum(price)}</td><td style="text-align:right">$${formatNum(cost)}</td></tr>`;
       }).join("");
-      const budgetLine = appSettings.budget>0
-        ? `<div class="sub">本月預算：$${formatNum(appSettings.budget)} ｜ 預算使用率：${((totalCost/appSettings.budget)*100).toFixed(0)}%${totalCost>appSettings.budget ? "（已超支）" : ""}</div>`
-        : "";
       costSectionHtml = `
         <h2>本期費用試算</h2>
         <table><thead><tr><th>類型</th><th>用量（度）</th><th>單價</th><th>費用</th></tr></thead><tbody>${costRows}</tbody></table>
         <div class="sub"><b>本期預估總費用：$${formatNum(totalCost)}</b></div>
-        ${budgetLine}
       `;
     }
 

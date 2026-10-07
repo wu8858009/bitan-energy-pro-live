@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.99">
+<meta name="app-build" content="5.00">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -831,7 +831,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.99</span>
+      <span class="pro-badge">PRO v5.00</span>
     </div>
 
     <div class="control-panel">
@@ -1070,7 +1070,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.99 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v5.00 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3308,6 +3308,9 @@
         @media print{ .rpt-toolbar{display:none;} body{padding-top:12px !important;} }` : "";
   const REPORT_TOOLBAR_HTML = REPORT_TOOLBAR_ON ? `<div class="rpt-toolbar"><button type="button" onclick="window.print()">🖨 列印 / 存PDF</button><button type="button" class="rpt-exit" onclick="rptExit()">✕ 退出</button></div><script>function rptExit(){ window.close(); setTimeout(function(){ if(!window.closed){ history.back(); } }, 200); }<\/script>` : "";
 
+  // 報表列印自動縮成一頁：內容比一張 A4 紙高就等比例縮小（列印與 PDF 都會用到縮小後的版面）
+  const REPORT_FIT_ONE_PAGE_JS = `<script>(function(){function fit(){var el=document.querySelector('.paper')||document.body;el.style.zoom='1';var h=el.scrollHeight;var max=1000;if(h>max){el.style.zoom=(max/h).toFixed(3);}}window.addEventListener('load',fit);window.addEventListener('beforeprint',fit);})();<\/script>`;
+
   // ---- 列印 / 匯出 PDF：開新視窗產生簡潔報表後呼叫列印 ----
   document.getElementById("mExportPdf").addEventListener("click", ()=>{
     const readings = loadReadings(currentMonthKey);
@@ -3344,7 +3347,7 @@
         tr:nth-child(even){background:#f6f7fa;}
         @media print{ body{padding:12px;} }
         ${REPORT_TOOLBAR_CSS}
-      </style></head><body>${REPORT_TOOLBAR_HTML}
+      </style></head><body>${REPORT_TOOLBAR_HTML}${REPORT_FIT_ONE_PAGE_JS}
       <h1>碧潭能源管理系統 － ${currentMonthKey} 抄錄總表</h1>
       <div class="sub">抄錄日：${dateStr} ｜ 匯出時間：${new Date().toLocaleString("zh-TW")}</div>
       <table>
@@ -3443,7 +3446,7 @@
         .sign-line{display:inline-block; width:180px; border-bottom:1px solid #000;}
         @media print{ body{padding:0;} }
         ${REPORT_TOOLBAR_CSS}
-      </style></head><body>${REPORT_TOOLBAR_HTML}
+      </style></head><body>${REPORT_TOOLBAR_HTML}${REPORT_FIT_ONE_PAGE_JS}
       <div class="paper">
         <div class="title">碧潭 商店街</div>
         <div class="subtitle">管理費收款總表</div>
@@ -4476,7 +4479,7 @@
         tr:nth-child(even){background:#f6f7fa;}
         @media print{ body{padding:12px;} }
         ${REPORT_TOOLBAR_CSS}
-      </style></head><body>${REPORT_TOOLBAR_HTML}
+      </style></head><body>${REPORT_TOOLBAR_HTML}${REPORT_FIT_ONE_PAGE_JS}
       <h1>碧潭能源管理系統 － 用量趨勢分析報告</h1>
       <div class="sub">篩選群組：${escapeHtml(groupLabel)} ｜ 類型：${typeLabel} ｜ 期間：近${chartPeriodMonths}期（至 ${currentMonthKey}）</div>
       <div class="sub">匯出時間：${new Date().toLocaleString("zh-TW")}</div>

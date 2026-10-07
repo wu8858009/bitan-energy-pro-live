@@ -6,11 +6,21 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.96">
+<meta name="app-build" content="4.97">
 <link rel="manifest" href="manifest.json">
 <script>
-// 電腦版（desktop/main.py）的 User-Agent 含有 BiTanEnergyDesktop，用來隱藏網頁內重複的標題列
-if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentElement.classList.add("desktop-app");
+// 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
+// 手機與平板用手機排版。電腦版程式的 User-Agent 含有 BiTanEnergyDesktop，同時隱藏網頁內重複的標題列。
+(function(){
+  var ua = navigator.userAgent;
+  var isDesktopApp = ua.indexOf("BiTanEnergyDesktop") !== -1;
+  // iPadOS 的桌面模式 UA 會偽裝成 Macintosh，所以另外看觸控點數
+  var isTouchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  var isMobile = !isDesktopApp && (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua) || isTouchMac);
+  var root = document.documentElement;
+  root.classList.add(isMobile ? "is-mobile" : "is-desktop");
+  if(isDesktopApp) root.classList.add("desktop-app");
+})();
 </script>
 <script>
 (function(){
@@ -700,12 +710,13 @@ if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentEl
 
 
   /* ============================================================
-     RESPONSIVE BREAKPOINTS — 自動偵測裝置寬度並調整版面
+     版面分兩套，依「裝置」決定（見 <head> 的腳本，會加上 html.is-desktop 或 html.is-mobile）：
+       電腦版（is-desktop）：左側導覽、多欄卡片，不管視窗寬度，寬度只影響欄數（1400px 以上四欄）
+       手機／平板（is-mobile）：貼底導覽，依寬度調整（下列 xs/sm/md 區段）
      xs  : < 380px   (小尺寸手機, e.g. iPhone SE)
      sm  : >= 480px  (一般手機橫向 / 大手機)
      md  : >= 700px  (直式平板)
-     lg  : >= 1024px (橫式平板 / 小筆電)
-     xl  : >= 1400px (桌機 / 大螢幕)
+     xl  : >= 1400px (電腦大螢幕，只作用在 is-desktop)
      ============================================================ */
 
   /* --- 窄螢幕手機：兩個欄位仍維持左右並排，只是各自可以縮小 --- */
@@ -737,45 +748,43 @@ if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentEl
     .date-input{max-width:180px; flex:0 0 auto;}
   }
 
-  /* --- lg: 橫式平板／小筆電，三欄卡片，寬版標題列，導覽列改成左側直式 --- */
-  @media (min-width:1024px){
-    .topbar-inner, .content{max-width:1180px;}
-    .topbar{--tb-pad:32px; padding-top:18px;}
-    .title-row h1{font-size:24px;}
-    #cardList{grid-template-columns:repeat(3,1fr); gap:18px;}
-    .content{padding:24px 32px 16px;}
-    .search-input{padding:16px 18px 16px 48px; font-size:15px;}
-    .summary-item .val{font-size:24px;}
+  /* --- 電腦版排版（依裝置，不看視窗寬度）：左側直式導覽、三欄卡片，寬版標題列。
+     手機與平板（html.is-mobile）不會套用這一段，維持貼底導覽與手機排版 --- */
+  html.is-desktop .topbar-inner, html.is-desktop .content{max-width:1180px;}
+  html.is-desktop .topbar{--tb-pad:32px; padding-top:18px;}
+  html.is-desktop .title-row h1{font-size:24px;}
+  html.is-desktop #cardList{grid-template-columns:repeat(3,1fr); gap:18px;}
+  html.is-desktop .content{padding:24px 32px 16px;}
+  html.is-desktop .search-input{padding:16px 18px 16px 48px; font-size:15px;}
+  html.is-desktop .summary-item .val{font-size:24px;}
 
-    /* 寬螢幕（含桌面版 App 預設視窗大小）不適合手機式貼底導覽，改成左側直式：
-       導覽列（96px）+ 內容區（其餘空間，標題列也在裡面隨頁面捲動）左右並排 */
-    body{
-      grid-template-columns:96px 1fr; grid-template-rows:1fr;
-      grid-template-areas:"nav content";
-    }
-    .bottomnav{
-      border-top:none; border-right:1px solid var(--line);
-      box-shadow:4px 0 14px rgba(20,30,60,.06);
-      padding:24px 0;
-    }
-    .bottomnav-inner{
-      display:flex; flex-direction:column; align-items:stretch; gap:10px;
-      max-width:none; margin:0; width:100%;
-    }
-    .nav-item{font-size:11px; padding:10px 0;}
-    .nav-item .ic{font-size:22px;}
-    body.dark-mode .bottomnav{border-right-color:#232c40; box-shadow:4px 0 14px rgba(0,0,0,.25);}
-
-    /* 桌面用滑鼠操作時，卡片 hover 有輕微浮起回饋 */
-    .meter-card{transition:box-shadow .15s ease, transform .15s ease;}
-    .meter-card:hover{box-shadow:0 4px 10px rgba(20,30,60,.08), 0 16px 32px rgba(20,30,60,.08); transform:translateY(-2px);}
-    .save-btn:hover, .photo-btn:hover, .edit-link:hover{opacity:.85;}
+  /* 電腦版不適合手機式貼底導覽，改成左側直式：導覽列（96px）+ 內容區（標題列也在裡面隨頁面捲動）左右並排 */
+  html.is-desktop body{
+    grid-template-columns:96px 1fr; grid-template-rows:1fr;
+    grid-template-areas:"nav content";
   }
+  html.is-desktop .bottomnav{
+    border-top:none; border-right:1px solid var(--line);
+    box-shadow:4px 0 14px rgba(20,30,60,.06);
+    padding:24px 0;
+  }
+  html.is-desktop .bottomnav-inner{
+    display:flex; flex-direction:column; align-items:stretch; gap:10px;
+    max-width:none; margin:0; width:100%;
+  }
+  html.is-desktop .nav-item{font-size:11px; padding:10px 0;}
+  html.is-desktop .nav-item .ic{font-size:22px;}
+  html.is-desktop body.dark-mode .bottomnav{border-right-color:#232c40; box-shadow:4px 0 14px rgba(0,0,0,.25);}
+
+  /* 電腦用滑鼠操作時，卡片 hover 有輕微浮起回饋 */
+  html.is-desktop .meter-card{transition:box-shadow .15s ease, transform .15s ease;}
+  html.is-desktop .meter-card:hover{box-shadow:0 4px 10px rgba(20,30,60,.08), 0 16px 32px rgba(20,30,60,.08); transform:translateY(-2px);}
+  html.is-desktop .save-btn:hover, html.is-desktop .photo-btn:hover, html.is-desktop .edit-link:hover{opacity:.85;}
 
   /* --- xl: 桌機大螢幕，四欄卡片，容器再放寬 --- */
   @media (min-width:1400px){
-    .topbar-inner, .content{max-width:1520px;}
-    #cardList{grid-template-columns:repeat(4,1fr);}
+    html.is-desktop .topbar-inner, html.is-desktop .content{max-width:1520px;}
+    html.is-desktop #cardList{grid-template-columns:repeat(4,1fr);}
   }
 
   /* --- 直式平板/桌機下，彈出視窗改置中而非貼底，且不用全寬 --- */
@@ -793,7 +802,7 @@ if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentEl
 
   /* --- 支援可摺疊/極寬螢幕：避免內容被拉得過寬過扁 --- */
   @media (min-width:1920px){
-    .topbar-inner, .content{max-width:1680px;}
+    html.is-desktop .topbar-inner, html.is-desktop .content{max-width:1680px;}
   }
 
   /* --- 減少動態效果偏好 --- */
@@ -813,7 +822,7 @@ if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentEl
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.96</span>
+      <span class="pro-badge">PRO v4.97</span>
     </div>
 
     <div class="control-panel">
@@ -1052,7 +1061,7 @@ if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentEl
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.96 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.97 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

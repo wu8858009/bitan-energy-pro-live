@@ -9,7 +9,7 @@ import sys
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QAction, QIcon
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrinterInfo
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMainWindow, QMenuBar
@@ -65,9 +65,15 @@ class BrowserPage(QWebEnginePage):
         self.setFeaturePermission(origin, feature, policy)
 
     def _on_print_requested(self):
-        # 網頁的「列印 / 存PDF」按鈕：顯示系統列印對話框（可選「Microsoft Print to PDF」存成 PDF）
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        # 網頁的「列印 / 存PDF」按鈕：顯示列印對話框，並自動選好目前的預設印表機
+        # （可在對話框裡改選，或選「Microsoft Print to PDF」存成 PDF）
+        default_printer = QPrinterInfo.defaultPrinter()
+        if default_printer.isNull():
+            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        else:
+            printer = QPrinter(default_printer, QPrinter.PrinterMode.HighResolution)
         dialog = QPrintDialog(printer, self.parent())
+        dialog.setWindowTitle(f"列印（目前印表機：{printer.printerName() or '未偵測到'}）")
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.print(printer, lambda ok: None)
 

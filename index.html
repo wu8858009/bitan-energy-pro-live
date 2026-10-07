@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.98">
+<meta name="app-build" content="4.99">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -831,7 +831,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.98</span>
+      <span class="pro-badge">PRO v4.99</span>
     </div>
 
     <div class="control-panel">
@@ -1070,7 +1070,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.98 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.99 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -3298,13 +3298,15 @@
 
   // 報表視窗的頂部工具列（手機上特別需要）：列印、退出。退出先試 window.close()，
   // 手機瀏覽器若不允許關閉就退回上一頁。列印時自動隱藏。
-  const REPORT_TOOLBAR_CSS = `
+  // 報表視窗上方的工具列（列印 / 存PDF、退出）只給手機版用；電腦版的報表視窗直接用視窗本身的關閉按鈕，不需要這一列
+  const REPORT_TOOLBAR_ON = !document.documentElement.classList.contains("desktop-app");
+  const REPORT_TOOLBAR_CSS = REPORT_TOOLBAR_ON ? `
         .rpt-toolbar{position:fixed; top:0; left:0; right:0; background:#0d2140; padding:10px 12px; display:flex; gap:8px; z-index:10;}
         .rpt-toolbar button{flex:1; border:none; border-radius:10px; padding:12px; font-size:15px; font-weight:800; color:#fff; background:rgba(255,255,255,.18); cursor:pointer;}
         .rpt-toolbar .rpt-exit{background:#e0483e;}
         body{padding-top:76px !important;}
-        @media print{ .rpt-toolbar{display:none;} body{padding-top:12px !important;} }`;
-  const REPORT_TOOLBAR_HTML = `<div class="rpt-toolbar"><button type="button" onclick="window.print()">🖨 列印 / 存PDF</button><button type="button" class="rpt-exit" onclick="rptExit()">✕ 退出</button></div><script>function rptExit(){ window.close(); setTimeout(function(){ if(!window.closed){ history.back(); } }, 200); }<\/script>`;
+        @media print{ .rpt-toolbar{display:none;} body{padding-top:12px !important;} }` : "";
+  const REPORT_TOOLBAR_HTML = REPORT_TOOLBAR_ON ? `<div class="rpt-toolbar"><button type="button" onclick="window.print()">🖨 列印 / 存PDF</button><button type="button" class="rpt-exit" onclick="rptExit()">✕ 退出</button></div><script>function rptExit(){ window.close(); setTimeout(function(){ if(!window.closed){ history.back(); } }, 200); }<\/script>` : "";
 
   // ---- 列印 / 匯出 PDF：開新視窗產生簡潔報表後呼叫列印 ----
   document.getElementById("mExportPdf").addEventListener("click", ()=>{

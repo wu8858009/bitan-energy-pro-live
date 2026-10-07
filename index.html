@@ -6,11 +6,11 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.95">
+<meta name="app-build" content="4.96">
 <link rel="manifest" href="manifest.json">
 <script>
-// 桌面版（WebView2 外殼）會注入 window.chrome.webview，用來隱藏網頁內重複的標題列
-if(window.chrome && window.chrome.webview) document.documentElement.classList.add("desktop-app");
+// 電腦版（desktop/main.py）的 User-Agent 含有 BiTanEnergyDesktop，用來隱藏網頁內重複的標題列
+if(navigator.userAgent.indexOf("BiTanEnergyDesktop") !== -1) document.documentElement.classList.add("desktop-app");
 </script>
 <script>
 (function(){
@@ -105,7 +105,7 @@ if(window.chrome && window.chrome.webview) document.documentElement.classList.ad
     }
     .topbar-user-name{font-size:13px; font-weight:800; color:#fff; line-height:1.25; word-break:break-all;}
   }
-  /* 電腦版：標題與登入人員改由視窗原生標題列顯示（見 MainForm.cs），網頁內不再重複 */
+  /* 電腦版：標題與登入人員改由視窗原生標題列顯示（見 desktop/main.py），網頁內不再重複 */
   html.desktop-app .title-row{display:none;}
   html.desktop-app .topbar{padding-top:10px;}
   .title-row h1{color:#fff; font-size:21px; margin:0; font-weight:800; letter-spacing:.5px;}
@@ -813,7 +813,7 @@ if(window.chrome && window.chrome.webview) document.documentElement.classList.ad
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.95</span>
+      <span class="pro-badge">PRO v4.96</span>
     </div>
 
     <div class="control-panel">
@@ -1052,7 +1052,7 @@ if(window.chrome && window.chrome.webview) document.documentElement.classList.ad
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.95 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.96 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

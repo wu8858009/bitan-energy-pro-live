@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.93">
+<meta name="app-build" content="4.94">
 <link rel="manifest" href="manifest.json">
 <script>
 (function(){
@@ -806,7 +806,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.93</span>
+      <span class="pro-badge">PRO v4.94</span>
     </div>
 
     <div class="control-panel">
@@ -1045,7 +1045,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.93 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.94 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1067,7 +1067,7 @@
       <div class="menu-section-title">費用與預算設定</div>
       <button type="button" class="menu-item" id="mPriceSettingsBtn">
         <span class="mi-ic">💰</span>
-        <span class="mi-label">費用與預算<span class="mi-sub">設定水電瓦斯單價與每月預算</span></span>
+        <span class="mi-label">費用與預算<span class="mi-sub">設定水電瓦斯單價、瓦斯公斤數與管理費</span></span>
         <span class="mi-chev">›</span>
       </button>
     </div>
@@ -1184,6 +1184,11 @@
       <label>每月瓦斯公斤數預算（kg，選填）</label>
       <input type="number" id="setGasKgBudget" placeholder="0" inputmode="decimal" min="0" step="1">
     </div>
+    <div class="form-group" style="margin-bottom:6px;">
+      <label>管理費（未稅基數，NT$，依店名）</label>
+    </div>
+    <div id="mgmtFeeList"></div>
+    <div style="font-size:12px; color:var(--ink-soft); margin:-4px 0 4px;">PDF 會自動加 5% 稅：管理費 = 未稅基數 × 1.05</div>
     <div class="sheet-actions">
       <button class="btn-cancel" id="priceSettingsCloseBtn">關閉</button>
     </div>
@@ -1552,7 +1557,9 @@
 
   // 瓦斯 1 度換算公斤數，預設值依照抄表試算表的「轉公斤」係數
   const DEFAULT_GAS_KG_PER_UNIT = 4.12;
-  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT};
+  // 管理費含稅係數（5% 稅）：PDF 的管理費 = ROUND(未稅基數 × 1.05, 0)
+  const MGMT_TAX_RATE = 1.05;
+  let appSettings = {unitPrice:{water:0, elec:0, gas:0}, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT, managementFee:{}};
   function loadSettings(){
     try{
       const raw = JSON.parse(localStorage.getItem(LS_SETTINGS) || "null");
@@ -1564,7 +1571,8 @@
             gas: Number(raw.unitPrice.gas) || 0
           },
           gasKgBudget: Number(raw.gasKgBudget) || 0,
-          gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0)
+          gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0),
+          managementFee: (raw.managementFee && typeof raw.managementFee === "object") ? raw.managementFee : {}
         };
       }
     }catch(e){}
@@ -3167,6 +3175,31 @@
     document.getElementById("setPriceGas").value = appSettings.unitPrice.gas || "";
     document.getElementById("setGasKgPerUnit").value = appSettings.gasKgPerUnit;
     document.getElementById("setGasKgBudget").value = appSettings.gasKgBudget || "";
+    renderMgmtFeeList();
+  }
+
+  // 店名：站點名稱第一個「-」前的文字（例：碧水堂-廚 → 碧水堂），沒有「-」就用整個名稱
+  function storeNameOf(site){
+    const name = (site.site || "").trim();
+    const idx = name.indexOf("-");
+    const store = idx > 0 ? name.slice(0, idx).trim() : name;
+    return store || "未分類";
+  }
+  function allStoreNames(){
+    return [...new Set(sites.map(storeNameOf))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+  }
+  function renderMgmtFeeList(){
+    const box = document.getElementById("mgmtFeeList");
+    const stores = allStoreNames();
+    if(stores.length === 0){
+      box.innerHTML = `<div class="chart-empty">尚無站點</div>`;
+      return;
+    }
+    box.innerHTML = stores.map(s=>`
+      <div class="form-group">
+        <label>${escapeHtml(s)}</label>
+        <input type="number" data-store="${escapeHtml(s).replace(/"/g, "&quot;")}" placeholder="0" inputmode="decimal" min="0" step="1" value="${appSettings.managementFee[s] || ""}">
+      </div>`).join("");
   }
   function bindSettingInput(inputId, applyFn){
     document.getElementById(inputId).addEventListener("input", (e)=>{
@@ -3181,6 +3214,14 @@
   document.getElementById("setGasKgPerUnit").addEventListener("input", (e)=>{
     const v = parseFloat(e.target.value);
     appSettings.gasKgPerUnit = isNaN(v) ? DEFAULT_GAS_KG_PER_UNIT : Math.max(0, v);
+    persistSettings();
+  });
+  document.getElementById("mgmtFeeList").addEventListener("input", e=>{
+    const store = e.target.dataset.store;
+    if(!store) return;
+    const v = parseFloat(e.target.value);
+    if(isNaN(v) || v <= 0) delete appSettings.managementFee[store];
+    else appSettings.managementFee[store] = v;
     persistSettings();
   });
   document.getElementById("menuCloseBtn").addEventListener("click", ()=>menuOverlay.classList.remove("open"));
@@ -3294,15 +3335,17 @@
     const priceElec = appSettings.unitPrice.elec || 0;
     const priceGas = appSettings.unitPrice.gas || 0;
     const kgPerUnit = appSettings.gasKgPerUnit;
-    if(priceWater<=0 && priceElec<=0 && priceGas<=0){
-      showToast("請先到「設定 → 費用與預算設定」設定單價，才能算出金額");
+    const hasFee = Object.keys(appSettings.managementFee).length > 0;
+    if(priceWater<=0 && priceElec<=0 && priceGas<=0 && !hasFee){
+      showToast("請先到「設定 → 費用與預算設定」設定單價或管理費，才能算出金額");
       return;
     }
 
     const readings = loadReadings(currentMonthKey);
     const byGroup = {};
     sites.forEach(site=>{
-      const group = site.group || "未分類";
+      // 門市列以站點名稱前的店名分組（例：碧水堂-廚 → 碧水堂）
+      const group = storeNameOf(site);
       if(!byGroup[group]) byGroup[group] = {water:0, elec:0, gas:0, types:new Set()};
       const prevVal = getPrevValue(site);
       const r = readings[site.id];
@@ -3317,7 +3360,7 @@
     // 版面依照「管理費收款總表」：只放金額、取整數；沒有資料的欄位留白，金額為 0 顯示 "-"
     const money = n => n ? Math.round(n).toLocaleString("en-US") : "-";
     const amtCell = (has, n) => has ? money(n) : "";
-    const sum = {water:0, elec:0, gas:0, subtotal:0};
+    const sum = {water:0, elec:0, gas:0, fee:0, subtotal:0};
     let rows = "";
     groups.forEach(g=>{
       const u = byGroup[g];
@@ -3325,14 +3368,17 @@
       const wAmt = Math.round(u.water * priceWater);
       const eAmt = Math.round(u.elec * priceElec);
       const gAmt = Math.round(u.gas * kgPerUnit * priceGas);
-      const subtotal = wAmt + eAmt + gAmt;
-      sum.water += wAmt; sum.elec += eAmt; sum.gas += gAmt; sum.subtotal += subtotal;
+      // 管理費 = ROUND(未稅基數 × 1.05, 0)；沒有設定基數的店留白、不計入小計
+      const base = appSettings.managementFee[g] || 0;
+      const fee = base > 0 ? Math.round(base * MGMT_TAX_RATE) : 0;
+      const subtotal = wAmt + eAmt + gAmt + fee;
+      sum.water += wAmt; sum.elec += eAmt; sum.gas += gAmt; sum.fee += fee; sum.subtotal += subtotal;
       rows += `<tr>
         <td class="name">${escapeHtml(g)}</td>
         <td class="num">${amtCell(u.types.has("water"), wAmt)}</td>
         <td class="num">${amtCell(u.types.has("elec"), eAmt)}</td>
         <td class="num">${amtCell(u.types.has("gas"), gAmt)}</td>
-        <td></td><td></td><td></td>
+        <td class="num">${fee ? money(fee) : ""}</td><td></td><td></td>
         <td class="num">${money(subtotal)}</td>
         <td></td>
       </tr>`;
@@ -3384,14 +3430,14 @@
                 <td class="num">${money(sum.water)}</td>
                 <td class="num">${money(sum.elec)}</td>
                 <td class="num">${money(sum.gas)}</td>
-                <td></td><td></td><td></td>
+                <td class="num">${money(sum.fee)}</td><td></td><td></td>
                 <td class="num">${money(sum.subtotal)}</td>
                 <td></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">單價：水 $${formatNum(priceWater)}/度、電 $${formatNum(priceElec)}/度、瓦斯 $${formatNum(priceGas)}/公斤（1 度 = ${kgPerUnit} 公斤）</div>
+        <div class="note">單價：水 $${formatNum(priceWater)}/度、電 $${formatNum(priceElec)}/度、瓦斯 $${formatNum(priceGas)}/公斤（1 度 = ${kgPerUnit} 公斤）｜ 管理費 = 未稅基數 × 1.05（含 5% 稅）</div>
         <div class="foot">
           <div>覆核：<span class="sign-line"></span></div>
           <div>製表日期：${printDate}</div>

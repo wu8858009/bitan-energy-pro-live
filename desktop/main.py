@@ -6,13 +6,16 @@
 
 import os
 import sys
+import tempfile
+import uuid
 
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrinterInfo
+from PySide6.QtCore import Qt, QSize, QUrl
+from PySide6.QtGui import QAction, QIcon, QPainter
+from PySide6.QtPdf import QPdfDocument
+from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter, QPrinterInfo
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMainWindow, QMenuBar
+from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenuBar, QMessageBox
 
 # 正式站網址：網頁版與電腦版共用同一個網址。
 SITE_URL = "https://bitan-energy-pro-live.onrender.com"
@@ -35,6 +38,7 @@ class BrowserPage(QWebEnginePage):
         super().__init__(profile, parent)
         self.featurePermissionRequested.connect(self._on_feature_requested)
         self.printRequested.connect(self._on_print_requested)
+        self.pdfPrintingFinished.connect(self._on_pdf_ready)
 
     def createWindow(self, window_type):
         # window.open()（匯出報告、列印預覽）：開一個新視窗來顯示
@@ -65,17 +69,51 @@ class BrowserPage(QWebEnginePage):
         self.setFeaturePermission(origin, feature, policy)
 
     def _on_print_requested(self):
-        # 網頁的「列印 / 存PDF」按鈕：顯示列印對話框，並自動選好目前的預設印表機
-        # （可在對話框裡改選，或選「Microsoft Print to PDF」存成 PDF）
-        default_printer = QPrinterInfo.defaultPrinter()
-        if default_printer.isNull():
-            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        # 網頁的「列印 / 存PDF」按鈕：先把報表存成暫存 PDF，再開列印預覽（見 _on_pdf_ready）
+        self.printToPdf(os.path.join(tempfile.gettempdir(), f"bitan-report-{uuid.uuid4().hex}.pdf"))
+
+    def _on_pdf_ready(self, path, success):
+        parent = self.parent()
+        if success:
+            show_print_preview(path, parent)
         else:
-            printer = QPrinter(default_printer, QPrinter.PrinterMode.HighResolution)
-        dialog = QPrintDialog(printer, self.parent())
-        dialog.setWindowTitle(f"列印（目前印表機：{printer.printerName() or '未偵測到'}）")
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.print(printer, lambda ok: None)
+            QMessageBox.warning(parent, APP_TITLE, "無法產生列印用的 PDF，請再試一次。")
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def show_print_preview(pdf_path, parent):
+    # 列印預覽：把 PDF 每一頁畫到預覽中，預覽裡的「列印」用目前的預設印表機（可在對話框改選）
+    default_printer = QPrinterInfo.defaultPrinter()
+    if default_printer.isNull():
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+    else:
+        printer = QPrinter(default_printer, QPrinter.PrinterMode.HighResolution)
+
+    pdf = QPdfDocument(parent)
+    pdf.load(pdf_path)
+
+    def paint(p):
+        painter = QPainter(p)
+        area = p.pageRect(QPrinter.Unit.DevicePixel)
+        for i in range(pdf.pageCount()):
+            if i > 0:
+                p.newPage()
+            # 依比例放進可列印範圍，不變形
+            page = pdf.pagePointSize(i)
+            scale = min(area.width() / page.width(), area.height() / page.height())
+            size = QSize(int(page.width() * scale), int(page.height() * scale))
+            painter.drawImage(area.topLeft(), pdf.render(i, size))
+        painter.end()
+
+    dialog = QPrintPreviewDialog(printer, parent)
+    dialog.setWindowTitle(f"列印預覽（目前印表機：{printer.printerName() or '未偵測到'}）")
+    dialog.resize(1000, 800)
+    dialog.paintRequested.connect(paint)
+    dialog.exec()
+    pdf.close()
 
 
 def _forget_popup(popup):

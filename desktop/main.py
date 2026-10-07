@@ -9,13 +9,15 @@ import sys
 import tempfile
 import uuid
 
-from PySide6.QtCore import Qt, QSize, QUrl
+from PySide6.QtCore import Qt, QPointF, QSize, QUrl
 from PySide6.QtGui import QAction, QIcon, QPainter
 from PySide6.QtPdf import QPdfDocument
-from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter, QPrinterInfo
+from PySide6.QtPdfWidgets import QPdfView
+from PySide6.QtPrintSupport import QPrinter, QPrinterInfo
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenuBar, QMessageBox
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel,
+                               QMainWindow, QMenuBar, QMessageBox, QPushButton, QSpinBox, QVBoxLayout)
 
 # 正式站網址：網頁版與電腦版共用同一個網址。
 SITE_URL = "https://bitan-energy-pro-live.onrender.com"
@@ -84,36 +86,147 @@ class BrowserPage(QWebEnginePage):
             pass
 
 
-def show_print_preview(pdf_path, parent):
-    # 列印預覽：把 PDF 每一頁畫到預覽中，預覽裡的「列印」用目前的預設印表機（可在對話框改選）
-    default_printer = QPrinterInfo.defaultPrinter()
-    if default_printer.isNull():
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    else:
-        printer = QPrinter(default_printer, QPrinter.PrinterMode.HighResolution)
+class PrintPreviewDialog(QDialog):
+    # 電腦版標準的列印預覽：左側是印表機、份數與列印按鈕，右側是預覽與翻頁、縮放
+    def __init__(self, pdf_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("列印")
+        self.resize(1100, 720)
+        # 明確指定顏色，不跟隨 Windows 的深色模式（否則左側文字會看不清楚）
+        self.setStyleSheet("""
+            QDialog { background: #f3f4f6; }
+            QLabel { color: #111827; font-size: 14px; }
+            QComboBox, QSpinBox { background: #ffffff; color: #111827; border: 1px solid #cbd5e1;
+                border-radius: 6px; padding: 5px 8px; font-size: 14px; }
+            QComboBox QAbstractItemView { background: #ffffff; color: #111827; selection-background-color: #2563eb; }
+            QPushButton { background: #ffffff; color: #111827; border: 1px solid #cbd5e1;
+                border-radius: 8px; padding: 8px; font-size: 14px; }
+            QPushButton#printBtn { background: #2563eb; color: #ffffff; border: none; font-weight: 700; }
+            QPushButton#printBtn:hover { background: #1d4ed8; }
+        """)
+        self.pdf = QPdfDocument(self)
+        self.pdf.load(pdf_path)
 
-    pdf = QPdfDocument(parent)
-    pdf.load(pdf_path)
+        # ---- 左側：印表機與份數（自動選好目前的預設印表機）----
+        side = QFrame()
+        side.setFixedWidth(260)
+        side_layout = QVBoxLayout(side)
+        side_layout.setContentsMargins(18, 18, 18, 18)
+        side_layout.setSpacing(10)
 
-    def paint(p):
-        painter = QPainter(p)
-        area = p.pageRect(QPrinter.Unit.DevicePixel)
-        for i in range(pdf.pageCount()):
+        self.printer_box = QComboBox()
+        self.printer_names = [p.printerName() for p in QPrinterInfo.availablePrinters()]
+        self.printer_box.addItems(self.printer_names)
+        default_name = QPrinterInfo.defaultPrinter().printerName()
+        if default_name in self.printer_names:
+            self.printer_box.setCurrentIndex(self.printer_names.index(default_name))
+        self.copies = QSpinBox()
+        self.copies.setRange(1, 99)
+        self.copies.setValue(1)
+        self.page_info = QLabel()
+
+        side_layout.addWidget(QLabel("印表機"))
+        side_layout.addWidget(self.printer_box)
+        side_layout.addSpacing(6)
+        side_layout.addWidget(QLabel("份數"))
+        side_layout.addWidget(self.copies)
+        side_layout.addSpacing(6)
+        side_layout.addWidget(self.page_info)
+        side_layout.addStretch(1)
+        print_btn = QPushButton("列印")
+        print_btn.setObjectName("printBtn")
+        print_btn.setDefault(True)
+        print_btn.setMinimumHeight(38)
+        print_btn.clicked.connect(self._print)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setMinimumHeight(38)
+        cancel_btn.clicked.connect(self.reject)
+        side_layout.addWidget(print_btn)
+        side_layout.addWidget(cancel_btn)
+
+        # ---- 右側：預覽工具列（翻頁、縮放）＋預覽 ----
+        self.view = QPdfView(self)
+        self.view.setDocument(self.pdf)
+        self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        self.view.setZoomMode(QPdfView.ZoomMode.FitInView)
+        self.nav = self.view.pageNavigator()
+        self.nav.currentPageChanged.connect(self._update_page_info)
+
+        prev_btn = QPushButton("◀")
+        next_btn = QPushButton("▶")
+        self.page_label = QLabel()
+        self.zoom_box = QComboBox()
+        self.zoom_box.addItems(["整頁", "符合寬度", "50%", "100%", "150%", "200%"])
+        for btn in (prev_btn, next_btn):
+            btn.setFixedWidth(36)
+        prev_btn.clicked.connect(lambda: self.nav.jump(max(0, self.nav.currentPage() - 1), QPointF()))
+        next_btn.clicked.connect(lambda: self.nav.jump(min(self.pdf.pageCount() - 1, self.nav.currentPage() + 1), QPointF()))
+        self.zoom_box.currentIndexChanged.connect(self._apply_zoom)
+
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(prev_btn)
+        toolbar.addWidget(next_btn)
+        toolbar.addWidget(self.page_label)
+        toolbar.addStretch(1)
+        toolbar.addWidget(QLabel("縮放"))
+        toolbar.addWidget(self.zoom_box)
+
+        right = QVBoxLayout()
+        right.addLayout(toolbar)
+        right.addWidget(self.view, 1)
+
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(side)
+        root.addLayout(right, 1)
+
+        self._update_page_info(0)
+
+    def _update_page_info(self, page):
+        total = self.pdf.pageCount()
+        self.page_label.setText(f"第 {page + 1} 頁 / 共 {total} 頁")
+        self.page_info.setText(f"共 {total} 頁")
+
+    def _apply_zoom(self, index):
+        modes = {
+            0: (QPdfView.ZoomMode.FitInView, 1.0),
+            1: (QPdfView.ZoomMode.FitToWidth, 1.0),
+            2: (QPdfView.ZoomMode.Custom, 0.5),
+            3: (QPdfView.ZoomMode.Custom, 1.0),
+            4: (QPdfView.ZoomMode.Custom, 1.5),
+            5: (QPdfView.ZoomMode.Custom, 2.0),
+        }
+        mode, factor = modes[index]
+        self.view.setZoomMode(mode)
+        if mode == QPdfView.ZoomMode.Custom:
+            self.view.setZoomFactor(factor)
+
+    def _print(self):
+        name = self.printer_box.currentText()
+        info = next((p for p in QPrinterInfo.availablePrinters() if p.printerName() == name), None)
+        printer = QPrinter(info, QPrinter.PrinterMode.HighResolution) if info else QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setCopyCount(self.copies.value())
+        painter = QPainter(printer)
+        area = printer.pageRect(QPrinter.Unit.DevicePixel)
+        for i in range(self.pdf.pageCount()):
             if i > 0:
-                p.newPage()
+                printer.newPage()
             # 依比例放進可列印範圍，不變形
-            page = pdf.pagePointSize(i)
+            page = self.pdf.pagePointSize(i)
             scale = min(area.width() / page.width(), area.height() / page.height())
             size = QSize(int(page.width() * scale), int(page.height() * scale))
-            painter.drawImage(area.topLeft(), pdf.render(i, size))
+            painter.drawImage(area.topLeft(), self.pdf.render(i, size))
         painter.end()
+        self.accept()
 
-    dialog = QPrintPreviewDialog(printer, parent)
-    dialog.setWindowTitle(f"列印預覽（目前印表機：{printer.printerName() or '未偵測到'}）")
-    dialog.resize(1000, 800)
-    dialog.paintRequested.connect(paint)
-    dialog.exec()
-    pdf.close()
+    def done(self, result):
+        self.pdf.close()
+        super().done(result)
+
+
+def show_print_preview(pdf_path, parent):
+    PrintPreviewDialog(pdf_path, parent).exec()
 
 
 def _forget_popup(popup):

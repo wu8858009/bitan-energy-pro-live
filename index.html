@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="5.00">
+<meta name="app-build" content="5.01">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -118,6 +118,8 @@
   /* 電腦版：標題與登入人員改由視窗原生標題列顯示（見 desktop/main.py），網頁內不再重複 */
   html.desktop-app .title-row{display:none;}
   html.desktop-app .topbar{padding-top:10px;}
+  /* 電腦版的功能都在視窗上方的選單列（檔案／管理／設定），側邊欄的「選單」按鈕不再需要 */
+  html.desktop-app #menuBtn{display:none;}
   /* 電腦版的自訂下拉列表（取代原生 <select> 彈出視窗，見 </body> 前的腳本） */
   .sel-pop{position:fixed; z-index:10000; box-sizing:border-box; overflow-y:auto; padding:6px;
     background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px;
@@ -831,7 +833,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v5.00</span>
+      <span class="pro-badge">PRO v5.01</span>
     </div>
 
     <div class="control-panel">
@@ -1070,7 +1072,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v5.00 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v5.01 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 

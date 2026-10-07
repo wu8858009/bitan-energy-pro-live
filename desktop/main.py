@@ -121,6 +121,8 @@ def create_profile(app):
     # 具名 profile：cookie 與快取存在本機，登入狀態下次開啟仍然有效
     profile = QWebEngineProfile("BiTanEnergyDesktop", app)
     profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+    # 網頁快取只放在記憶體，每次開啟都向伺服器取最新版網頁，不會停在舊版（登入的 cookie 仍保存在本機）
+    profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
     profile.setHttpUserAgent(f"{profile.httpUserAgent()} {USER_AGENT_TAG}")
     return profile
 

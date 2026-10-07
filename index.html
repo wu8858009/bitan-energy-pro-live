@@ -6,8 +6,12 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="4.94">
+<meta name="app-build" content="4.95">
 <link rel="manifest" href="manifest.json">
+<script>
+// 桌面版（WebView2 外殼）會注入 window.chrome.webview，用來隱藏網頁內重複的標題列
+if(window.chrome && window.chrome.webview) document.documentElement.classList.add("desktop-app");
+</script>
 <script>
 (function(){
   try{
@@ -101,6 +105,9 @@
     }
     .topbar-user-name{font-size:13px; font-weight:800; color:#fff; line-height:1.25; word-break:break-all;}
   }
+  /* 電腦版：標題與登入人員改由視窗原生標題列顯示（見 MainForm.cs），網頁內不再重複 */
+  html.desktop-app .title-row{display:none;}
+  html.desktop-app .topbar{padding-top:10px;}
   .title-row h1{color:#fff; font-size:21px; margin:0; font-weight:800; letter-spacing:.5px;}
   .pro-badge{background:var(--gold); color:#3a2900; font-weight:800; font-size:11px; padding:4px 9px; border-radius:8px; letter-spacing:.5px;}
 
@@ -806,7 +813,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v4.94</span>
+      <span class="pro-badge">PRO v4.95</span>
     </div>
 
     <div class="control-panel">
@@ -1045,7 +1052,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v4.94 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v4.95 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -2996,6 +3003,9 @@
     const name = currentUserDisplayName || currentUsername || "--";
     document.getElementById("navUserName").textContent = name;
     document.getElementById("navUserAvatar").textContent = name.trim().charAt(0).toUpperCase() || "👤";
+    // 電腦版會把網頁標題同步到視窗標題列，所以標題要帶上版本與登入人員
+    const build = document.querySelector('meta[name="app-build"]').content;
+    document.title = name === "--" ? "碧潭能源管理系統" : `碧潭能源管理系統 PRO v${build} ・ ${name}`;
   }
 
   document.getElementById("mAccountsBtn").addEventListener("click", async ()=>{

@@ -42,6 +42,13 @@ public class MainForm : Form
         // 讓「匯出報告/列印」功能開的新視窗（window.open）能正常顯示，而不是被 WebView2 預設吃掉。
         _webView.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
 
+        // 網頁標題（含版本與登入人員）同步到視窗標題列，電腦版只保留一條標題列。
+        _webView.CoreWebView2.DocumentTitleChanged += (s, args) =>
+        {
+            var title = _webView.CoreWebView2.DocumentTitle;
+            if (!string.IsNullOrWhiteSpace(title)) Text = title;
+        };
+
         _webView.CoreWebView2.Navigate(SiteUrl);
     }
 

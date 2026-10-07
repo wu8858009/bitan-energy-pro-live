@@ -8,11 +8,11 @@ import os
 import sys
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMainWindow
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMainWindow, QMenuBar
 
 # 正式站網址：網頁版與電腦版共用同一個網址。
 SITE_URL = "https://bitan-energy-pro-live.onrender.com"
@@ -91,6 +91,77 @@ class PopupWindow(QMainWindow):
         self.show()
 
 
+# 工具欄選單：把網頁「選單」裡的功能放到視窗上方。點選後在網頁裡按下對應的原始按鈕，
+# 所以功能與網頁版完全一樣；隱藏的項目（例如非管理員看不到的帳號管理）會自動略過。
+MENU_GROUPS = [
+    ("檔案", [
+        ("匯出報表（CSV）", "mExportCsv"),
+        ("列印 / 存PDF", "mExportPdf"),
+        ("會計報表（PDF）", "mExportAccounting"),
+        None,
+        ("匯出備份", "mExportJson"),
+        ("匯入還原", "mImportJson"),
+        None,
+        ("登出", "mLogout"),
+    ]),
+    ("管理", [
+        ("帳號管理", "mAccountsBtn"),
+        ("門市管理", "mStoresBtn"),
+        None,
+        ("操作日誌", "mAuditLogBtn"),
+        ("登入安全", "mLoginSecurityBtn"),
+    ]),
+    ("設定", [
+        ("設定（姓名、顯示）", "mSettingsBtn"),
+        ("費用與預算", "mPriceSettingsBtn"),
+        ("深色模式", "mDarkToggle"),
+        ("修改密碼", "mChangePasswordBtn"),
+        None,
+        ("清除本期資料", "mClearMonth"),
+        ("清除全部資料", "mClearAll"),
+    ]),
+]
+
+# 點擊網頁裡的按鈕；所在區塊被隱藏（沒有權限、或該功能不適用）時什麼都不做
+CLICK_JS = """(function(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  for(var n = el; n && !n.classList.contains('overlay'); n = n.parentElement){
+    if(n.hidden || (n.style && n.style.display === 'none')) return;
+  }
+  if(getComputedStyle(el).display === 'none') return;
+  el.click();
+})("__ID__");"""
+
+MENU_BAR_STYLE = """
+QMenuBar { background: #0b1120; color: #e2e8f0; padding: 2px 6px; }
+QMenuBar::item { background: transparent; padding: 6px 12px; border-radius: 6px; }
+QMenuBar::item:selected { background: #1c3150; }
+QMenu { background: #141c2c; color: #e2e8f0; border: 1px solid #243044; padding: 4px; }
+QMenu::item { padding: 7px 26px 7px 18px; border-radius: 6px; }
+QMenu::item:selected { background: #2563eb; color: #ffffff; }
+QMenu::item:disabled { color: #64748b; }
+QMenu::separator { height: 1px; background: #243044; margin: 4px 8px; }
+"""
+
+
+def build_menu_bar(view):
+    bar = QMenuBar()
+    bar.setStyleSheet(MENU_BAR_STYLE)
+    for title, items in MENU_GROUPS:
+        menu = bar.addMenu(title)
+        for item in items:
+            if item is None:
+                menu.addSeparator()
+                continue
+            label, element_id = item
+            action = QAction(label, menu)
+            js = CLICK_JS.replace("__ID__", element_id)
+            action.triggered.connect(lambda checked=False, js=js: view.page().runJavaScript(js))
+            menu.addAction(action)
+    return bar
+
+
 class MainWindow(QMainWindow):
     def __init__(self, profile):
         super().__init__()
@@ -102,6 +173,7 @@ class MainWindow(QMainWindow):
         # 網頁標題（含版本與登入人員）同步到視窗標題列，只保留一條標題列
         self.view.titleChanged.connect(self.setWindowTitle)
         self.setCentralWidget(self.view)
+        self.setMenuBar(build_menu_bar(self.view))
         self.view.load(QUrl(SITE_URL))
 
 

@@ -4,9 +4,11 @@
 登入狀態保存在本機，下次開啟不用重新登入。
 """
 
+import glob
 import os
 import sys
 import tempfile
+import time
 import uuid
 
 from PySide6.QtCore import Qt, QUrl
@@ -20,6 +22,8 @@ SITE_URL = "https://wu8858009.github.io/bitan-energy-pro-live/"
 APP_TITLE = "碧潭能源管理系統"
 # 網頁依 User-Agent 判斷是電腦版，據此隱藏網頁內重複的標題列（見 index.html）。
 USER_AGENT_TAG = "BiTanEnergyDesktop/2.0"
+REPORT_PDF_PREFIX = "bitan-report-"
+REPORT_PDF_KEEP_SECONDS = 24 * 60 * 60
 
 # 持有 window.open() 開出來的視窗，避免還沒顯示就被回收。
 _popups = []
@@ -68,7 +72,7 @@ class BrowserPage(QWebEnginePage):
 
     def _on_print_requested(self):
         # 網頁的「列印 / 存PDF」按鈕：先把報表存成暫存 PDF，再交給電腦上的 PDF 程式開啟（見 _on_pdf_ready）
-        self.printToPdf(os.path.join(tempfile.gettempdir(), f"bitan-report-{uuid.uuid4().hex}.pdf"))
+        self.printToPdf(os.path.join(tempfile.gettempdir(), f"{REPORT_PDF_PREFIX}{uuid.uuid4().hex}.pdf"))
 
     def _on_pdf_ready(self, path, success):
         parent = self.parent()
@@ -81,6 +85,17 @@ class BrowserPage(QWebEnginePage):
 def open_pdf_for_printing(pdf_path):
     # 列印交給電腦上預設的 PDF 程式：它有列印預覽，列印對話框是 Windows 標準的，預設印表機已自動選好
     os.startfile(pdf_path)
+
+
+def purge_old_report_pdfs():
+    # 列印用的暫存 PDF 含報表內容：開啟時清掉超過一天的（太新的可能還開在 PDF 程式裡）
+    cutoff = time.time() - REPORT_PDF_KEEP_SECONDS
+    for path in glob.glob(os.path.join(tempfile.gettempdir(), f"{REPORT_PDF_PREFIX}*.pdf")):
+        try:
+            if os.path.getmtime(path) < cutoff:
+                os.remove(path)
+        except OSError:
+            pass
 
 
 def _forget_popup(popup):
@@ -211,6 +226,7 @@ def create_profile(app):
 
 
 def main():
+    purge_old_report_pdfs()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_TITLE)
     app.setWindowIcon(QIcon(resource_path("app.ico")))

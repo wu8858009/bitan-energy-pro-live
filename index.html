@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="5.02">
+<meta name="app-build" content="5.03">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -42,9 +42,9 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <!-- 條碼掃描（搜尋框旁的相機掃描功能用），支援 1D/2D 各種條碼格式、跨瀏覽器（含 iOS Safari） -->
-<script src="https://unpkg.com/@zxing/library@latest" defer></script>
+<script src="https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js" integrity="sha384-0ASr5PEWAMtTnWsn0PzKmioHVDA4+QqFiJr94io/0DCrGP6E1gRAmbO6O8y5WZW9" crossorigin="anonymous" defer></script>
 <!-- 產生錶號 QR Code 用（跟上面條碼「掃描」是相反方向：這個是印出來貼在實體電錶上，方便下次直接掃） -->
-<script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+<script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
 <style>
   :root{
     --navy-950:#081527;
@@ -833,7 +833,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v5.02</span>
+      <span class="pro-badge">PRO v5.03</span>
     </div>
 
     <div class="control-panel">
@@ -1072,7 +1072,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v5.02 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v5.03 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1634,12 +1634,12 @@
     const res = await apiRaw(path, options);
     if(res.status === 401){
       onAuthRequired();
-      throw new Error("尚未登入或登入已過期");
+      throw Object.assign(new Error("尚未登入或登入已過期"), {status: 401});
     }
     if(!res.ok){
       let message = "發生錯誤（" + res.status + "）";
       try{ const body = await res.json(); if(body && body.message) message = body.message; }catch(e){}
-      throw new Error(message);
+      throw Object.assign(new Error(message), {status: res.status});
     }
     return res;
   }
@@ -2055,6 +2055,7 @@
       readingsCache[r.monthKey][r.siteId] = {
         curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr),
         prevOverride: (r.prevOverride===null||r.prevOverride===undefined) ? null : Number(r.prevOverride),
+        updatedAt: r.updatedAt || null,
         photos: (r.photos||[]).map(p=>({id:p.id, url:photoUrl(p.id)}))
       };
     });
@@ -2064,68 +2065,207 @@
     return readingsCache[monthKey] || (readingsCache[monthKey] = {});
   }
 
-  // 本期讀數輸入採防抖動送出，避免每個按鍵都打一次 API
+  // 本期讀數輸入採防抖動送出，避免每個按鍵都打一次 API。雲端每次存檔要 1～3 秒，所以另外確保：
+  // 1. 同一格同時只送一筆，後來的值排在後面，舊值不會蓋掉新值；
+  // 2. 暫時失敗自動重試，還是失敗就留在本機並顯示提示，之後自動補傳；
+  // 3. 輸入當下就先記在本機，畫面關閉時立刻送出，就算沒送成功，下次開啟也會補傳。
+  const LS_UNSAVED_READINGS = "bitan_unsaved_readings_v1";
+  const SAVE_RETRY_DELAYS_MS = [1000, 3000];
   const currSaveTimers = {};
+  const currSaveRuns = {}; // key → { queued: 等待送出的值, promise: 這一輪送完後的結果 }
+
+  function loadUnsaved(){
+    try{ return JSON.parse(localStorage.getItem(LS_UNSAVED_READINGS) || "{}") || {}; }catch(e){ return {}; }
+  }
+  function storeUnsaved(map){
+    try{ localStorage.setItem(LS_UNSAVED_READINGS, JSON.stringify(map)); }catch(e){}
+  }
+  function clearUnsaved(key, value){
+    const map = loadUnsaved();
+    if(map[key] && map[key].value === value){ delete map[key]; storeUnsaved(map); }
+  }
+  function cachedCurr(siteId, monthKey){
+    const entry = readingsCache[monthKey] && readingsCache[monthKey][siteId];
+    return entry && entry.curr !== undefined ? entry.curr : "";
+  }
+
   function scheduleSaveCurrValue(siteId, monthKey, value){
     const key = siteId + "|" + monthKey;
+    const map = loadUnsaved();
+    map[key] = {value, at: Date.now()};
+    storeUnsaved(map);
     clearTimeout(currSaveTimers[key]);
     currSaveTimers[key] = setTimeout(()=>{
       delete currSaveTimers[key];
-      saveCurrValue(siteId, monthKey, value);
+      enqueueCurrSave(siteId, monthKey, value);
     }, 500);
   }
-  async function saveCurrValue(siteId, monthKey, value){
-    let curr = null;
-    if(value!==""&&value!==undefined&&value!==null){
-      const site = sites.find(s=>s.id===siteId);
-      const prevVal = site ? getPrevValueForMonth(site, monthKey) : 0;
-      // 偵測錶盤歸零重繞時，存入補正後的累計值，讓下個月的「上期」自動帶入正確度數
-      const eff = computeEffectiveCurr(prevVal, value, meterMaxFor(site));
-      curr = isNaN(eff) ? null : eff;
+  function currForSave(siteId, monthKey, value){
+    if(value==="" || value===undefined || value===null) return null;
+    const site = sites.find(s=>s.id===siteId);
+    const prevVal = site ? getPrevValueForMonth(site, monthKey) : 0;
+    // 偵測錶盤歸零重繞時，存入補正後的累計值，讓下個月的「上期」自動帶入正確度數
+    const eff = computeEffectiveCurr(prevVal, value, meterMaxFor(site));
+    return isNaN(eff) ? null : eff;
+  }
+  function enqueueCurrSave(siteId, monthKey, value){
+    const key = siteId + "|" + monthKey;
+    let run = currSaveRuns[key];
+    if(run){
+      run.queued = value;
+      return run.promise;
     }
-    try{
-      await apiFetch("/readings/"+siteId+"?month="+encodeURIComponent(monthKey), {
-        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({curr})
-      });
-      if(curr!==null && readingsCache[monthKey] && readingsCache[monthKey][siteId]){
-        readingsCache[monthKey][siteId].curr = String(curr);
+    run = currSaveRuns[key] = {queued: value};
+    run.promise = runCurrSaves(siteId, monthKey, key, run);
+    return run.promise;
+  }
+  async function runCurrSaves(siteId, monthKey, key, run){
+    let saved = true;
+    while(run.queued !== undefined){
+      const value = run.queued;
+      run.queued = undefined;
+      saved = await putCurrWithRetry(siteId, monthKey, key, run, value);
+      if(saved) clearUnsaved(key, value);
+    }
+    delete currSaveRuns[key];
+    refreshUnsavedBanner();
+    return saved;
+  }
+  async function putCurrWithRetry(siteId, monthKey, key, run, value){
+    const curr = currForSave(siteId, monthKey, value);
+    for(let attempt = 0; ; attempt++){
+      try{
+        await apiFetch("/readings/"+siteId+"?month="+encodeURIComponent(monthKey), {
+          method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({curr})
+        });
+        // 等回應的這段時間使用者可能又改了，那時畫面上的新值不能被這次的舊結果蓋掉
+        const stillLatest = run.queued === undefined && !currSaveTimers[key];
+        if(curr!==null && stillLatest && readingsCache[monthKey] && readingsCache[monthKey][siteId]){
+          readingsCache[monthKey][siteId].curr = String(curr);
+        }
+        return true;
+      }catch(e){
+        if(run.queued !== undefined) return false; // 已經有更新的值要送，這筆不用再試
+        const rejected = e.status >= 400 && e.status < 500 && e.status !== 401;
+        if(rejected){
+          // 伺服器明確拒絕（例如沒有權限），再送幾次都一樣，不留著補傳
+          clearUnsaved(key, value);
+          showToast(e.message || "讀數儲存失敗");
+          return false;
+        }
+        if(e.status === 401 || attempt >= SAVE_RETRY_DELAYS_MS.length){
+          showToast(e.message || "讀數儲存失敗");
+          return false;
+        }
+        await new Promise(done=>setTimeout(done, SAVE_RETRY_DELAYS_MS[attempt]));
       }
-    }catch(e){
-      showToast(e.message || "讀數儲存失敗");
     }
   }
+  // 回傳 true＝全部都存進去了
   function flushPendingCurrSaves(){
-    const pending = Object.keys(currSaveTimers).map(key=>{
+    Object.keys(currSaveTimers).forEach(key=>{
       clearTimeout(currSaveTimers[key]);
       delete currSaveTimers[key];
       const [siteId, monthKey] = key.split("|");
-      const value = (readingsCache[monthKey] && readingsCache[monthKey][siteId]) ? readingsCache[monthKey][siteId].curr : "";
-      return saveCurrValue(siteId, monthKey, value);
+      enqueueCurrSave(siteId, monthKey, cachedCurr(siteId, monthKey));
     });
-    return Promise.all(pending);
+    return Promise.all(Object.values(currSaveRuns).map(run=>run.promise)).then(results=>results.every(Boolean));
+  }
+  // 頁面正在關閉或切到背景：一般請求可能送不出去，改用瀏覽器保證會送的方式。本機紀錄先留著，下次開啟時核對。
+  function sendPendingCurrOnExit(){
+    Object.keys(currSaveTimers).forEach(key=>{
+      clearTimeout(currSaveTimers[key]);
+      delete currSaveTimers[key];
+      const [siteId, monthKey] = key.split("|");
+      const path = "/readings/"+siteId+"?month="+encodeURIComponent(monthKey);
+      const body = {curr: currForSave(siteId, monthKey, cachedCurr(siteId, monthKey))};
+      try{
+        if(CLOUD_URL){
+          const payload = cloudEnvelope("PUT", path, localStorage.getItem(LS_CLOUD_TOKEN), body);
+          navigator.sendBeacon(CLOUD_URL, new Blob([payload], {type:"text/plain;charset=utf-8"}));
+        }else{
+          fetch(API_BASE+path, {method:"PUT", credentials:"include", keepalive:true, headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+        }
+      }catch(e){}
+    });
+  }
+  function retryUnsavedReadings(){
+    const map = loadUnsaved();
+    Object.keys(map).forEach(key=>{
+      if(currSaveTimers[key] || currSaveRuns[key]) return;
+      const [siteId, monthKey] = key.split("|");
+      enqueueCurrSave(siteId, monthKey, map[key].value);
+    });
+    refreshUnsavedBanner();
+  }
+  // 開機載入雲端資料後：把上次沒送成功的讀數放回畫面並補傳。雲端的資料比本機這筆新（已送達，或別台裝置改過）就不補傳。
+  function restoreUnsavedReadings(){
+    const map = loadUnsaved();
+    Object.keys(map).forEach(key=>{
+      const [siteId, monthKey] = key.split("|");
+      const server = readingsCache[monthKey] && readingsCache[monthKey][siteId];
+      if(!sites.some(s=>s.id===siteId) || (server && server.updatedAt && Date.parse(server.updatedAt) >= map[key].at)){
+        delete map[key];
+        return;
+      }
+      const readings = loadReadings(monthKey);
+      if(!readings[siteId]) readings[siteId] = {curr:"", photos:[]};
+      readings[siteId].curr = map[key].value;
+    });
+    storeUnsaved(map);
+    retryUnsavedReadings();
+  }
+  function refreshUnsavedBanner(){
+    const count = Object.keys(loadUnsaved()).filter(key=>!currSaveTimers[key] && !currSaveRuns[key]).length;
+    let banner = document.getElementById("unsavedBanner");
+    if(!count){
+      if(banner) banner.remove();
+      return;
+    }
+    if(!banner){
+      banner = document.createElement("button");
+      banner.type = "button";
+      banner.id = "unsavedBanner";
+      banner.style.cssText = "position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:50%;transform:translateX(-50%);z-index:9999;max-width:92vw;padding:10px 16px;border:0;border-radius:999px;background:#b91c1c;color:#fff;font-weight:700;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer";
+      banner.addEventListener("click", retryUnsavedReadings);
+      document.body.appendChild(banner);
+    }
+    banner.textContent = `⚠️ 有 ${count} 筆讀數尚未存到雲端，點這裡重試`;
   }
 
   // ---- Month select ----
+  // 月份清單：至少涵蓋去年與今年，有更早的抄錄資料就從那一年開始，跨年後才查得到舊資料
+  function fillMonthOptions(){
+    const sel = document.getElementById("monthSelect");
+    const selected = sel.value;
+    const thisYear = new Date().getFullYear();
+    let firstYear = thisYear - 1;
+    Object.keys(readingsCache).forEach(key=>{
+      const y = Number(key.slice(0,4));
+      if(y && y < firstYear) firstYear = y;
+    });
+    sel.innerHTML = "";
+    for(let y=firstYear; y<=thisYear; y++){
+      for(let m=1; m<=12; m++){
+        const mm = String(m).padStart(2,"0");
+        const opt = document.createElement("option");
+        opt.value = y + "-" + mm;
+        opt.textContent = `${y}-${mm}月`;
+        sel.appendChild(opt);
+      }
+    }
+    if(selected) sel.value = selected;
+  }
+  let monthSelectBound = false;
   function buildMonthOptions(){
     const sel = document.getElementById("monthSelect");
-    sel.innerHTML = "";
+    fillMonthOptions();
     const now = new Date();
-    const options = [];
-    // 自動偵測當年年份，產生該年 1~12 月完整清單
-    const y = now.getFullYear();
-    for(let m=1; m<=12; m++){
-      options.push(y + "-" + String(m).padStart(2,"0"));
-    }
-    options.forEach(key=>{
-      const opt = document.createElement("option");
-      opt.value = key;
-      const [yy,mm] = key.split("-");
-      opt.textContent = `${yy}-${mm}月`;
-      sel.appendChild(opt);
-    });
     const defaultKey = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0");
     sel.value = defaultKey;
     currentMonthKey = defaultKey;
+    if(monthSelectBound) return;
+    monthSelectBound = true;
     sel.addEventListener("change", ()=>{
       currentMonthKey = sel.value;
       render();
@@ -3584,7 +3724,7 @@
     setTimeout(()=>printWin.print(), 300);
   });
 
-  // ---- 匯出完整備份 JSON（站點與各月讀數；照片不含在備份內，仍保留於伺服器）----
+  // ---- 匯出完整備份 JSON（站點、各月讀數、上期補正、每日讀數；照片本身仍在雲端硬碟，備份只記錄對應關係）----
   document.getElementById("mExportJson").addEventListener("click", exportData);
 
   async function exportData(){
@@ -3616,12 +3756,13 @@
         const payload = JSON.parse(ev.target.result);
         if(!payload.sites || !payload.readings){ throw new Error("格式不正確"); }
         showConfirm(
-          `確定要還原備份嗎？這會覆蓋伺服器上目前所有站點與抄錄紀錄（照片不含在備份內，不受影響）。\n備份時間：${payload.exportedAt||"未知"}`,
+          `確定要還原備份嗎？這會覆蓋雲端上目前所有站點與抄錄紀錄。\n備份時間：${payload.exportedAt||"未知"}`,
           async ()=>{
             try{
-              await apiFetch("/backup/import", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sites:payload.sites, readings:payload.readings})});
+              await apiFetch("/backup/import", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sites:payload.sites, readings:payload.readings, dailyReadings:payload.dailyReadings})});
               await loadSites();
               await loadAllReadings();
+              fillMonthOptions();
               menuOverlay.classList.remove("open");
               render();
               showToast("備份已還原");
@@ -4806,8 +4947,8 @@
 
   // ---- Save all（強制送出所有還在防抖動等待中的本期讀數）----
   document.getElementById("saveAllBtn").addEventListener("click", async ()=>{
-    await flushPendingCurrSaves();
-    showToast("已儲存本期抄錶資料");
+    const allSaved = await flushPendingCurrSaves();
+    showToast(allSaved ? "已儲存本期抄錶資料" : "部分讀數尚未存到雲端，恢復連線後會自動補傳");
   });
 
   // ---- Photo capture ----
@@ -5060,6 +5201,7 @@
 
   document.getElementById("mLogout").addEventListener("click", ()=>{
     showConfirm("確定要登出嗎？", async ()=>{
+      try{ await flushPendingCurrSaves(); }catch(e){}
       try{ await apiRaw("/auth/offline", {method:"POST"}); }catch(e){}
       try{ await apiRaw("/auth/logout", {method:"POST"}); }catch(e){}
       location.reload();
@@ -5078,6 +5220,12 @@
     heartbeatTimer = setInterval(beat, PRESENCE_INTERVAL_MS);
     beat();
     document.addEventListener("visibilitychange", beat);
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) sendPendingCurrOnExit();
+      else retryUnsavedReadings();
+    });
+    window.addEventListener("online", retryUnsavedReadings);
+    window.addEventListener("pagehide", sendPendingCurrOnExit);
     window.addEventListener("pagehide", reportOfflineOnExit);
     if(currentUserRole === "Admin"){
       setInterval(()=>{
@@ -5092,6 +5240,8 @@
     try{
       await loadSites();
       await loadAllReadings();
+      fillMonthOptions();
+      restoreUnsavedReadings();
       await refreshAdminKnownStoreNames();
       render();
     }catch(e){

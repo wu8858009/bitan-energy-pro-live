@@ -17,6 +17,8 @@ const CHUNK = 45000;                  // 每格上限 5 萬字，大型 JSON 分
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 const MAX_PHOTO_BYTES = 20000000;
+const UNKNOWN_LOGIN_AUDIT_MAX = 20;   // 不存在的帳號嘗試登入，每小時最多記幾筆（否則任何人都能灌爆操作日誌）
+const SITE_TYPES = { water: 1, elec: 1, gas: 1 };
 
 // ---------------------------------------------------------------- 進入點
 
@@ -61,8 +63,8 @@ const ROUTES = [
   ["POST", /^\/auth\/login$/, "public", (c) => login_(c)],
   ["POST", /^\/setup\/import$/, "public", (c) => setupImport_(c)],
 
-  ["POST", /^\/auth\/logout$/, "user", () => ok_()],
-  ["GET", /^\/auth\/me$/, "user", (c) => ok_(Object.assign(meOut_(c.user), { token: createToken_(c.user) }))],
+  ["POST", /^\/auth\/logout$/, "user", (c) => logout_(c)],
+  ["GET", /^\/auth\/me$/, "user", (c) => ok_(Object.assign(meOut_(c.user), { token: createToken_(c.user, c.sid) }))],
   ["POST", /^\/auth\/change-password$/, "user", (c) => changePassword_(c)],
   ["POST", /^\/auth\/heartbeat$/, "user", (c) => heartbeat_(c)],
   ["POST", /^\/auth\/offline$/, "user", (c) => offline_(c)],
@@ -126,7 +128,9 @@ function route_(method, fullPath, body, token) {
     if (!match) continue;
     const ctx = { body: body, query: query, args: match.slice(1).map(decodeURIComponent), user: null, token: token };
     if (level !== "public") {
-      ctx.user = authenticate_(token);
+      const auth = authenticate_(token);
+      ctx.user = auth.user;
+      ctx.sid = auth.sid;
       if (level === "admin" && ctx.user.role !== "Admin") forbid_();
     }
     return handler(ctx);
@@ -549,20 +553,28 @@ function sign_(text) {
   return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(text, tokenSecret_())).replace(/=+$/, "");
 }
 
-function createToken_(user) {
-  const body = user.id + "." + (Date.now() + TOKEN_DAYS * 86400000);
+// 權杖：帳號.到期時間.帳號版本.工作階段.簽章。改密碼時帳號版本加一，所有裝置的舊權杖立刻失效；
+// 登出只讓這個工作階段失效，其他裝置不受影響。
+function createToken_(user, sid) {
+  const session = sid || Utilities.getUuid().replace(/-/g, "").slice(0, 16);
+  const body = [user.id, Date.now() + TOKEN_DAYS * 86400000, user.tokenVersion || 0, session].join(".");
   return body + "." + sign_(body);
 }
 
-// 每次請求都重新對照帳號（跟原本一樣），管理員改了指派門市或刪掉帳號會立刻生效
+// 每次請求都重新對照帳號（跟原本一樣），管理員改了指派門市或刪掉帳號會立刻生效。
+// 三段式是舊版權杖（沒有版本與工作階段），帳號改過密碼後就不再接受，下次開啟 App 會自動換成新格式。
 function authenticate_(token) {
   const parts = String(token || "").split(".");
-  if (parts.length !== 3) fail_(401, "請先登入");
-  if (sign_(parts[0] + "." + parts[1]) !== parts[2]) fail_(401, "登入已失效，請重新登入");
+  const legacy = parts.length === 3;
+  if (!legacy && parts.length !== 5) fail_(401, "請先登入");
+  if (sign_(parts.slice(0, -1).join(".")) !== parts[parts.length - 1]) fail_(401, "登入已失效，請重新登入");
   if (Date.now() > Number(parts[1])) fail_(401, "登入已過期，請重新登入");
   const user = userById_(parts[0]);
   if (!user) fail_(401, "帳號不存在");
-  return user;
+  const sid = legacy ? "" : parts[3];
+  if ((legacy ? 0 : Number(parts[2])) !== (user.tokenVersion || 0)) fail_(401, "登入已失效，請重新登入");
+  if (sid && (user.revokedSessions || []).some((r) => r.s === sid)) fail_(401, "登入已失效，請重新登入");
+  return { user: user, sid: sid };
 }
 
 // ---------------------------------------------------------------- 帳號與權限
@@ -621,8 +633,7 @@ function login_(c) {
   const username = c.body.username, password = c.body.password || "";
   let user = users_().find((u) => u.username === username) || null;
   if (!user) {
-    lock_();
-    audit_(username, "登入失敗", "帳號不存在");
+    noteUnknownLogin_(username);
     fail_(401, "帳號或密碼錯誤");
   }
   if (user.lockedUntil && Date.parse(user.lockedUntil) > Date.now()) {
@@ -655,6 +666,26 @@ function login_(c) {
   return ok_(Object.assign(meOut_(user), { token: createToken_(user) }));
 }
 
+// 登入 API 不需要權杖，任何人都能呼叫：不存在的帳號限制記錄筆數，免得真正的操作紀錄被擠掉
+function noteUnknownLogin_(username) {
+  const cache = CacheService.getScriptCache();
+  const count = parseInt(cache.get("unknownLogins"), 10) || 0;
+  if (count >= UNKNOWN_LOGIN_AUDIT_MAX) return;
+  cache.put("unknownLogins", String(count + 1), 3600);
+  lock_();
+  audit_(String(username).slice(0, 50), "登入失敗", "帳號不存在");
+}
+
+function logout_(c) {
+  if (!c.sid) return ok_();
+  lock_();
+  const u = userById_(c.user.id);
+  const now = Date.now();
+  u.revokedSessions = (u.revokedSessions || []).filter((r) => r.e > now).concat([{ s: c.sid, e: now + TOKEN_DAYS * 86400000 }]);
+  saveUser_(u);
+  return ok_();
+}
+
 function changePassword_(c) {
   if (!verifyPassword_(c.body.currentPassword || "", c.user.passwordHash)) fail_(400, "目前密碼不正確");
   const pw = c.body.newPassword;
@@ -663,9 +694,10 @@ function changePassword_(c) {
   lock_();
   const u = userById_(c.user.id);
   u.passwordHash = hash;
+  u.tokenVersion = (u.tokenVersion || 0) + 1;
   saveUser_(u);
   audit_(u.username, "修改密碼", "");
-  return ok_();
+  return ok_({ token: createToken_(u, c.sid) }); // 其他裝置全部登出，這台換新權杖繼續使用
 }
 
 function updateDisplayName_(c) {
@@ -734,7 +766,10 @@ function updateAccount_(c, id) {
   if (u.role === "Admin" && b.role !== "Admin" && users_().filter((x) => x.role === "Admin").length <= 1) fail_(400, "至少需要保留一個管理員帳號");
   u.displayName = String(b.displayName || "").trim();
   u.username = b.username;
-  if (hash) u.passwordHash = hash;
+  if (hash) {
+    u.passwordHash = hash;
+    u.tokenVersion = (u.tokenVersion || 0) + 1;
+  }
   u.role = b.role;
   u.assignedGroups = b.assignedGroups || [];
   u.permissionLevel = b.role === "Admin" ? "Full" : b.permissionLevel;
@@ -865,7 +900,10 @@ function getSites_(c) {
 function validateSite_(b) {
   if (blank_(b.site)) fail_(400, "請輸入站點名稱");
   if ([4, 5, 6].indexOf(Number(b.meterDigits)) < 0) fail_(400, "儀表位數不正確");
+  if (!isSiteType_(b.type || "water")) fail_(400, "錶種不正確");
 }
+
+function isSiteType_(t) { return Object.prototype.hasOwnProperty.call(SITE_TYPES, t); }
 
 function createSite_(c) {
   const b = c.body;
@@ -956,7 +994,7 @@ function getReadingsByMonth_(c) {
 function getAllReadings_(c) {
   const ids = allowedSiteIds_(c.user);
   return ok_(dataOf_("Readings").filter((r) => ids === null || ids[r.siteId]).map((r) =>
-    Object.assign(readingOut_(r.siteId, r), { monthKey: r.monthKey })));
+    Object.assign(readingOut_(r.siteId, r), { monthKey: r.monthKey, updatedAt: r.updatedAt || null })));
 }
 
 function deleteMonth_(c) {
@@ -1148,22 +1186,31 @@ function deleteDaily_(c, siteId) {
 function exportBackup_() {
   return ok_({
     sites: dataOf_("Sites").slice().sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
-    readings: dataOf_("Readings").map((r) => ({ siteId: r.siteId, monthKey: r.monthKey, curr: r.curr === undefined ? null : r.curr })),
+    readings: dataOf_("Readings").map((r) => ({ siteId: r.siteId, monthKey: r.monthKey, curr: r.curr === undefined ? null : r.curr,
+      prevOverride: r.prevOverride === undefined ? null : r.prevOverride, photos: r.photos || [] })),
+    dailyReadings: dataOf_("Daily"),
   });
 }
 
-// 還原備份：覆蓋所有站點與各月讀數（備份不含照片，原本的照片會一併移到雲端硬碟的垃圾桶）
+// 還原備份：覆蓋所有站點與各月讀數。舊格式的備份沒有上期補正、每日讀數與照片對應，那些資料沿用雲端現有的，不會被清掉；
+// 只有還原後確定沒有任何讀數用到的照片，才移到雲端硬碟的垃圾桶。
 function importBackup_(c) {
   const b = c.body;
   if (!b || !b.sites) fail_(400, "備份格式不正確");
+  if (b.sites.some((s) => !isSiteType_(s.type || "water"))) fail_(400, "備份格式不正確：錶種不正確");
   lock_();
   const oldPhotos = photosOf_(dataOf_("Readings"));
+  const oldReadings = {};
+  dataOf_("Readings").forEach((r) => { oldReadings[readingKey_(r.siteId, r.monthKey)] = r; });
+  const oldDaily = dataOf_("Daily");
   ["Readings", "Daily", "Sites"].forEach(clear_);
   const idMap = {};
-  // Id 後段用流水號：站點是依 Id 排序顯示，這樣才會維持備份裡的順序
+  const usedIds = {};
+  // 沿用備份裡的 Id，還原後才對得上現有資料；不是標準 Id 的才換新，後段用流水號維持備份裡的順序
   const stamp = Math.floor(Date.now() / 1000).toString(16);
   const sites = b.sites.map((s, i) => {
-    const id = stamp + ("0000000000000000" + i.toString(16)).slice(-16);
+    const id = /^[0-9a-f]{24}$/.test(String(s.id)) && !usedIds[s.id] ? s.id : stamp + ("0000000000000000" + i.toString(16)).slice(-16);
+    usedIds[id] = 1;
     idMap[s.id] = id;
     return { id: id, group: s.group || "", site: s.site || "", location: s.location || "", meterNo: s.meterNo || "", type: s.type || "water",
       basePrev: Number(s.basePrev) || 0, baseMonth: s.baseMonth || null, meterDigits: Number(s.meterDigits) > 0 ? Number(s.meterDigits) : 4 };
@@ -1175,11 +1222,20 @@ function importBackup_(c) {
     const siteId = idMap[r.siteId];
     if (!siteId || seen[readingKey_(siteId, r.monthKey)]) return;
     seen[readingKey_(siteId, r.monthKey)] = 1;
-    readings.push({ siteId: siteId, monthKey: r.monthKey, curr: numOrNull_(r.curr), prevOverride: null, updatedAt: nowIso_(), photos: [] });
+    const old = oldReadings[readingKey_(siteId, r.monthKey)];
+    readings.push({ siteId: siteId, monthKey: r.monthKey, curr: numOrNull_(r.curr),
+      prevOverride: r.prevOverride !== undefined ? numOrNull_(r.prevOverride) : (old ? numOrNull_(old.prevOverride) : null),
+      updatedAt: nowIso_(), photos: Array.isArray(r.photos) ? r.photos : (old ? old.photos || [] : []) });
   });
   bulkAppend_("Readings", readings.map((r) => ({ key: readingKey_(r.siteId, r.monthKey), data: r })));
+  const daily = Array.isArray(b.dailyReadings)
+    ? b.dailyReadings.filter((d) => idMap[d.siteId]).map((d) => ({ siteId: idMap[d.siteId], date: d.date, value: Number(d.value) || 0 }))
+    : oldDaily.filter((d) => usedIds[d.siteId]);
+  bulkAppend_("Daily", daily.map((d) => ({ key: d.siteId + "|" + d.date, data: d })));
   sites.forEach((s) => ensureStore_(s.group));
-  trashPhotos_(oldPhotos);
+  const keptFiles = {};
+  photosOf_(readings).forEach((p) => { keptFiles[p.fileId] = 1; });
+  trashPhotos_(oldPhotos.filter((p) => !keptFiles[p.fileId]));
   audit_(c.user.username, "匯入備份還原", b.sites.length + " 個站點");
   return ok_();
 }

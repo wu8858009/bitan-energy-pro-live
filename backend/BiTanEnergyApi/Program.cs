@@ -69,13 +69,29 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Serve the static frontend (index.html) from the repo root so it's same-origin
-// with /api in every environment — Render runs this as a single Web Service,
-// so there's no separate static-file host and no CORS/cookie cross-origin concerns.
+// Serve the static frontend so it's same-origin with /api in every environment —
+// Render runs this as a single Web Service, so there's no separate static-file
+// host and no CORS/cookie cross-origin concerns. The repo root also contains the
+// backend (config files, App_Data uploads), and this runs before authentication,
+// so only the frontend's own files may be exposed here.
 var repoRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", ".."));
-var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(repoRoot);
-app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
-app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
+var frontendFiles = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(repoRoot);
+app.UseWhen(
+    ctx => ctx.Request.Path.Value is "/" or "/index.html" or "/manifest.json",
+    frontend =>
+    {
+        frontend.UseDefaultFiles(new DefaultFilesOptions { FileProvider = frontendFiles });
+        frontend.UseStaticFiles(new StaticFileOptions { FileProvider = frontendFiles });
+    });
+var iconsDir = Path.Combine(repoRoot, "icons");
+if (Directory.Exists(iconsDir))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(iconsDir),
+        RequestPath = "/icons"
+    });
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

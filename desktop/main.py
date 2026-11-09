@@ -16,7 +16,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenuBar, QMessageBox
 
 # 正式站網址：網頁版與電腦版共用同一個網址。
-SITE_URL = "https://bitan-energy-pro-live.onrender.com"
+SITE_URL = "https://wu8858009.github.io/bitan-energy-pro-live/"
 APP_TITLE = "碧潭能源管理系統"
 # 網頁依 User-Agent 判斷是電腦版，據此隱藏網頁內重複的標題列（見 index.html）。
 USER_AGENT_TAG = "BiTanEnergyDesktop/2.0"

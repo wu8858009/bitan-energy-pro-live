@@ -1,6 +1,6 @@
 # 碧潭能源管理系統 — 電腦版（免安裝 .exe）
 
-這是一個很薄的 Windows 桌面外殼，開啟後直接顯示正式站 `https://bitan-energy-pro-live.onrender.com` 的內容——資料跟手機/瀏覽器版是同一份（都是連到同一個後端 + MongoDB），沒有另外離線儲存資料。
+這是一個很薄的 Windows 桌面外殼，開啟後直接顯示正式站 `https://wu8858009.github.io/bitan-energy-pro-live/` 的內容——資料跟手機/瀏覽器版是同一份（都存在 Google 試算表與雲端硬碟），沒有另外離線儲存資料。
 
 技術上是 Python + PySide6（Qt WebEngine，內建 Chromium 網頁引擎），用 PyInstaller 打包成單一 `.exe`。
 

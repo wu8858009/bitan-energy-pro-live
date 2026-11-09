@@ -1,6 +1,8 @@
 # 碧潭能源管理系統 PRO
 
-水電瓦斯抄錶、用量趨勢分析與異常警示的管理工具。前端是單頁 HTML/CSS/JS（`index.html`），後端是 ASP.NET Core Web API + MongoDB（Atlas），資料集中存放在資料庫，可供多站點、多裝置共用；需要管理員帳號密碼登入才能讀寫資料。
+水電瓦斯抄錶、用量趨勢分析與異常警示的管理工具。前端是單頁 HTML/CSS/JS（`index.html`），放在 GitHub Pages（<https://wu8858009.github.io/bitan-energy-pro-live/>）；資料存在 Google 試算表、照片存在 Google 雲端硬碟，由 Apps Script 當後端（`cloud/`，設定與更新方式見 [cloud/設定說明.md](cloud/設定說明.md)），可供多站點、多裝置共用；需要帳號密碼登入才能讀寫資料。
+
+> 2026-11 起正式資料已搬到 Google。下方的 ASP.NET + MongoDB（`backend/`、Render）是舊版架構，`index.html` 的 `CLOUD_URL` 留空時才會用到。
 
 ## 功能
 

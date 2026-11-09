@@ -36,6 +36,7 @@ function doPost(e) {
     res = err && err.httpStatus ? { s: err.httpStatus, b: { message: err.message } }
       : { s: 500, b: { message: "雲端發生錯誤：" + (err && err.message ? err.message : err) } };
   } finally {
+    if (dirty_) bumpRevision_();
     releaseLock_();
   }
   return out_(res);
@@ -62,6 +63,10 @@ const ok_ = (b) => ({ s: 200, b: b === undefined ? null : b });
 const ROUTES = [
   ["POST", /^\/auth\/login$/, "public", (c) => login_(c)],
   ["POST", /^\/setup\/import$/, "public", (c) => setupImport_(c)],
+  ["GET", /^\/sync$/, "public", (c) => syncStatus_(c)],
+
+  ["GET", /^\/sync\/data$/, "user", (c) => syncData_(c)],
+  ["PUT", /^\/settings$/, "user", (c) => saveSettings_(c)],
 
   ["POST", /^\/auth\/logout$/, "user", (c) => logout_(c)],
   ["GET", /^\/auth\/me$/, "user", (c) => ok_(Object.assign(meOut_(c.user), { token: createToken_(c.user, c.sid) }))],
@@ -131,6 +136,7 @@ function route_(method, fullPath, body, token) {
       const auth = authenticate_(token);
       ctx.user = auth.user;
       ctx.sid = auth.sid;
+      writerSid_ = auth.sid;
       if (level === "admin" && ctx.user.role !== "Admin") forbid_();
     }
     return handler(ctx);
@@ -267,6 +273,66 @@ function clear_(name) {
 function invalidate_(name) {
   delete memo_[name];
   delete memo_[name + ":k"];
+  if (SYNC_TABLES[name]) dirty_ = true;
+}
+
+// ---------------------------------------------------------------- 多裝置同步
+// Apps Script 無法主動推送，由畫面開著的裝置每幾秒查一次版號，有變才抓資料。查版號的次數很多，
+// 所以版號放快取（不讀試算表）；PropertiesService 只在寫入時用，快取過期時才拿來補。
+
+const SYNC_TABLES = { Sites: 1, Readings: 1, Daily: 1, Stores: 1, Settings: 1 };
+let dirty_ = false;
+let writerSid_ = "";
+
+// 在 doPost 釋放鎖之前呼叫：寫入動作都持有鎖，版號才會依序增加
+function bumpRevision_() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const rev = (parseInt(props.getProperty("rev"), 10) || 0) + 1;
+    props.setProperty("rev", String(rev));
+    CacheService.getScriptCache().put("rev", JSON.stringify({ r: rev, b: writerSid_ }), 21600);
+  } catch (x) {} // 版號更新失敗不能影響已經存好的資料，頂多別台裝置晚一點才看到
+}
+
+function currentRevision_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("rev");
+  if (cached) return JSON.parse(cached);
+  const cur = { r: parseInt(PropertiesService.getScriptProperties().getProperty("rev"), 10) || 0, b: "" };
+  cache.put("rev", JSON.stringify(cur), 21600);
+  return cur;
+}
+
+// self：最新一次變更是不是這個工作階段自己做的，是的話前端不必重抓。只驗證權杖簽章、不讀試算表，回傳內容也只有版號。
+function syncStatus_(c) {
+  const parts = tokenParts_(c.token);
+  const sid = parts.length === 5 ? parts[3] : "";
+  const cur = currentRevision_();
+  return ok_({ rev: cur.r, self: !!sid && cur.b === sid });
+}
+
+// 版號要先讀再讀資料：讀的中途有人寫入，下次查版號才會發現不同而重抓
+function syncData_(c) {
+  const cur = currentRevision_();
+  const settings = findRec_("Settings", "app");
+  return ok_({ rev: cur.r, sites: getSites_(c).b, readings: getAllReadings_(c).b, settings: settings ? settings.data : null,
+    storeNames: c.user.role === "Admin" ? storesOf_().map((s) => s.name) : null });
+}
+
+function nonNegative_(v) { return Math.max(0, Number(v) || 0); }
+
+function saveSettings_(c) {
+  requirePermission_(c.user, "Edit");
+  const b = c.body || {}, price = b.unitPrice || {}, fee = {};
+  Object.keys(b.managementFee || {}).forEach((k) => {
+    const v = Number(b.managementFee[k]);
+    if (v > 0) fee[k] = v;
+  });
+  const s = { unitPrice: { water: nonNegative_(price.water), elec: nonNegative_(price.elec), gas: nonNegative_(price.gas) },
+    gasKgBudget: nonNegative_(b.gasKgBudget), gasKgPerUnit: nonNegative_(b.gasKgPerUnit), managementFee: fee };
+  lock_();
+  put_("Settings", "app", s);
+  return ok_(s);
 }
 
 // ---------------------------------------------------------------- 鎖、編號、時間
@@ -553,6 +619,15 @@ function sign_(text) {
   return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(text, tokenSecret_())).replace(/=+$/, "");
 }
 
+// 檢查格式、簽章與期限，回傳切開的各段
+function tokenParts_(token) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3 && parts.length !== 5) fail_(401, "請先登入");
+  if (sign_(parts.slice(0, -1).join(".")) !== parts[parts.length - 1]) fail_(401, "登入已失效，請重新登入");
+  if (Date.now() > Number(parts[1])) fail_(401, "登入已過期，請重新登入");
+  return parts;
+}
+
 // 權杖：帳號.到期時間.帳號版本.工作階段.簽章。改密碼時帳號版本加一，所有裝置的舊權杖立刻失效；
 // 登出只讓這個工作階段失效，其他裝置不受影響。
 function createToken_(user, sid) {
@@ -564,11 +639,8 @@ function createToken_(user, sid) {
 // 每次請求都重新對照帳號（跟原本一樣），管理員改了指派門市或刪掉帳號會立刻生效。
 // 三段式是舊版權杖（沒有版本與工作階段），帳號改過密碼後就不再接受，下次開啟 App 會自動換成新格式。
 function authenticate_(token) {
-  const parts = String(token || "").split(".");
+  const parts = tokenParts_(token);
   const legacy = parts.length === 3;
-  if (!legacy && parts.length !== 5) fail_(401, "請先登入");
-  if (sign_(parts.slice(0, -1).join(".")) !== parts[parts.length - 1]) fail_(401, "登入已失效，請重新登入");
-  if (Date.now() > Number(parts[1])) fail_(401, "登入已過期，請重新登入");
   const user = userById_(parts[0]);
   if (!user) fail_(401, "帳號不存在");
   const sid = legacy ? "" : parts[3];

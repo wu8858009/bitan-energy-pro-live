@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="5.03">
+<meta name="app-build" content="5.04">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -833,7 +833,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v5.03</span>
+      <span class="pro-badge">PRO v5.04</span>
     </div>
 
     <div class="control-panel">
@@ -1072,7 +1072,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v5.03 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v5.04 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1569,6 +1569,8 @@
   const CLOUD_URL = "https://script.google.com/macros/s/AKfycbxose_ffHC10iY2WAxhVVsEIkq-xcSRUu1eHumBms9K_Dq7Nl3m9v-uwCsunXRuVfSj/exec";
   const LS_CLOUD_TOKEN = "bitan_cloud_token";
   const CLOUD_PHOTO_MAX_SIDE = 1600;
+  const SYNC_NEUTRAL_PATHS = /^\/(auth\/(heartbeat|offline|login|logout)|photos\/batch)/; // 這些 POST 不會改動抄表資料
+  let syncGen = 0; // 每次本機改動資料就加一，用來丟棄改動前就抓好的舊同步資料
 
   // 雲端版上傳前先縮圖：手機原圖動輒數 MB，縮到看得清楚錶面的大小，上傳快很多也省雲端硬碟空間。
   async function cloudPhotoBody(file){
@@ -1606,12 +1608,16 @@
     let body;
     if(opts.body instanceof FormData) body = await cloudPhotoBody(opts.body.get("file"));
     else if(opts.body) body = JSON.parse(opts.body);
+    const method = opts.method || "GET";
+    const changesData = method !== "GET" && !SYNC_NEUTRAL_PATHS.test(path);
+    if(changesData) syncGen++;
     const res = await fetch(CLOUD_URL, {
       method:"POST",
       headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body: cloudEnvelope(opts.method || "GET", path, localStorage.getItem(LS_CLOUD_TOKEN), body)
+      body: cloudEnvelope(method, path, localStorage.getItem(LS_CLOUD_TOKEN), body)
     });
     const reply = await res.json();
+    if(changesData) syncGen++;
     if(path === "/auth/logout") localStorage.removeItem(LS_CLOUD_TOKEN);
     else if(reply.b && reply.b.token) localStorage.setItem(LS_CLOUD_TOKEN, reply.b.token);
     return {ok: reply.s >= 200 && reply.s < 300, status: reply.s, json: async ()=>reply.b};
@@ -1652,25 +1658,54 @@
   // 管理費含稅係數（5% 稅）：PDF 的管理費 = ROUND(未稅基數 × 1.05, 0)
   const MGMT_TAX_RATE = 1.05;
   let appSettings = {unitPrice:{water:0, elec:0, gas:0}, gasKgBudget:0, gasKgPerUnit:DEFAULT_GAS_KG_PER_UNIT, managementFee:{}};
+  function normalizeSettings(raw){
+    return {
+      unitPrice:{
+        water: Number(raw.unitPrice.water) || 0,
+        elec: Number(raw.unitPrice.elec) || 0,
+        gas: Number(raw.unitPrice.gas) || 0
+      },
+      gasKgBudget: Number(raw.gasKgBudget) || 0,
+      gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0),
+      managementFee: (raw.managementFee && typeof raw.managementFee === "object") ? raw.managementFee : {}
+    };
+  }
   function loadSettings(){
     try{
       const raw = JSON.parse(localStorage.getItem(LS_SETTINGS) || "null");
-      if(raw && raw.unitPrice){
-        appSettings = {
-          unitPrice:{
-            water: Number(raw.unitPrice.water) || 0,
-            elec: Number(raw.unitPrice.elec) || 0,
-            gas: Number(raw.unitPrice.gas) || 0
-          },
-          gasKgBudget: Number(raw.gasKgBudget) || 0,
-          gasKgPerUnit: raw.gasKgPerUnit === undefined ? DEFAULT_GAS_KG_PER_UNIT : (Number(raw.gasKgPerUnit) || 0),
-          managementFee: (raw.managementFee && typeof raw.managementFee === "object") ? raw.managementFee : {}
-        };
-      }
+      if(raw && raw.unitPrice) appSettings = normalizeSettings(raw);
     }catch(e){}
   }
+  // 費用設定存在雲端，各裝置共用同一份；本機那份只是下次開啟前的暫存。
+  // 輸入框每打一個字就會觸發，等停手後才送出。
+  const SETTINGS_PUSH_DELAY_MS = 800;
+  let settingsPushTimer = null;
   function persistSettings(){
     localStorage.setItem(LS_SETTINGS, JSON.stringify(appSettings));
+    if(!CLOUD_URL || !canEdit()) return;
+    syncGen++;
+    clearTimeout(settingsPushTimer);
+    settingsPushTimer = setTimeout(pushSettings, SETTINGS_PUSH_DELAY_MS);
+  }
+  async function pushSettings(){
+    settingsPushTimer = null;
+    try{
+      await apiFetch("/settings", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(appSettings)});
+    }catch(e){
+      showToast(e.message || "費用設定同步失敗");
+    }
+  }
+  function adoptServerSettings(serverSettings){
+    if(settingsPushTimer) return; // 正在輸入，等這次送出後再以雲端為準
+    if(serverSettings && serverSettings.unitPrice){
+      appSettings = normalizeSettings(serverSettings);
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(appSettings));
+      return;
+    }
+    // 雲端還沒有設定（剛升級）：把這台裝置原本設好的值傳上去，當作大家共用的設定
+    const p = appSettings.unitPrice;
+    const configured = p.water || p.elec || p.gas || appSettings.gasKgBudget || Object.keys(appSettings.managementFee).length;
+    if(configured && canEdit()) pushSettings();
   }
 
   const CLOUD_PHOTO_PREFIX = "cloud-photo:";
@@ -2047,18 +2082,116 @@
     await apiFetch("/sites/"+site.id, {method:"PUT", headers:{"Content-Type":"application/json"}, body});
   }
 
-  async function loadAllReadings(){
-    const all = await apiFetch("/readings/all").then(r=>r.json());
-    readingsCache = {};
+  function cacheFromServer(all){
+    const cache = {};
     all.forEach(r=>{
-      if(!readingsCache[r.monthKey]) readingsCache[r.monthKey] = {};
-      readingsCache[r.monthKey][r.siteId] = {
+      if(!cache[r.monthKey]) cache[r.monthKey] = {};
+      cache[r.monthKey][r.siteId] = {
         curr: (r.curr===null||r.curr===undefined) ? "" : String(r.curr),
         prevOverride: (r.prevOverride===null||r.prevOverride===undefined) ? null : Number(r.prevOverride),
         updatedAt: r.updatedAt || null,
         photos: (r.photos||[]).map(p=>({id:p.id, url:photoUrl(p.id)}))
       };
     });
+    return cache;
+  }
+  async function loadAllReadings(){
+    readingsCache = cacheFromServer(await apiFetch("/readings/all").then(r=>r.json()));
+  }
+
+  // ---- 多裝置同步：畫面開著時每幾秒向雲端查版號，別台裝置有改動才抓資料更新畫面 ----
+  const SYNC_INTERVAL_MS = 4000;
+  let syncRev = null;
+  let syncBusy = false;
+  let syncForce = false;
+  let syncRenderPending = false;
+
+  function adoptServerData(data){
+    sites = data.sites;
+    readingsCache = cacheFromServer(data.readings);
+    if(data.storeNames) adminKnownStoreNames = data.storeNames;
+    adoptServerSettings(data.settings);
+  }
+  async function loadSyncSnapshot(){
+    const data = await apiFetch("/sync/data").then(r=>r.json());
+    adoptServerData(data);
+    syncRev = data.rev;
+  }
+  function isEditingCard(){
+    const active = document.activeElement;
+    return !!(active && active.closest && active.closest("#cardList") && active.tagName === "INPUT");
+  }
+  // 重畫整個列表會弄丟輸入中的內容與游標，所以使用者正在操作時先不重畫
+  function refreshAfterSync(){
+    fillMonthOptions();
+    if(document.querySelector(".overlay.open")){
+      syncRenderPending = true;
+    }else if(isEditingCard()){
+      syncRenderPending = true;
+      updateOtherCardsInPlace();
+    }else{
+      renderKeepingScroll();
+    }
+  }
+  function renderKeepingScroll(){
+    const y = window.scrollY;
+    syncRenderPending = false;
+    render();
+    window.scrollTo(0, y);
+  }
+  // 正在輸入某一格時：別的格子直接更新數值，不重建畫面
+  function updateOtherCardsInPlace(){
+    const readings = loadReadings(currentMonthKey);
+    document.querySelectorAll("#cardList [data-curr]").forEach(inp=>{
+      if(inp === document.activeElement) return;
+      const site = sites.find(s=>s.id===inp.dataset.curr);
+      if(!site) return;
+      const currVal = readings[site.id] ? readings[site.id].curr : "";
+      const display = rawDigitsOf(currVal, meterMaxFor(site));
+      const text = display!==null && !isNaN(display) ? String(display) : "";
+      if(inp.value !== text) inp.value = text;
+      const prevVal = getPrevValue(site);
+      const prevEl = document.getElementById("prevField_"+site.id);
+      if(prevEl) prevEl.textContent = formatNum(prevVal);
+      updateUsageDisplay(site.id, currVal);
+      updateInputWarningUI(site.id, prevVal, currVal);
+    });
+    updateSummary(readings);
+  }
+  async function fetchSyncData(){
+    const gen = syncGen;
+    const data = await apiFetch("/sync/data").then(r=>r.json());
+    if(gen !== syncGen){
+      // 抓資料的同時本機又改了東西，這份已經過時，下一輪重抓
+      syncForce = true;
+      return;
+    }
+    syncForce = false;
+    syncRev = data.rev;
+    adoptServerData(data);
+    // 還沒送到雲端的讀數以本機為準，不能被雲端的舊值蓋掉
+    const unsaved = loadUnsaved();
+    Object.keys(unsaved).forEach(key=>{
+      const [siteId, monthKey] = key.split("|");
+      const readings = loadReadings(monthKey);
+      if(!readings[siteId]) readings[siteId] = {curr:"", photos:[]};
+      readings[siteId].curr = unsaved[key].value;
+    });
+    refreshAfterSync();
+  }
+  async function pollSync(){
+    if(!CLOUD_URL || syncBusy || syncRev === null || document.hidden) return;
+    syncBusy = true;
+    try{
+      const status = await apiRaw("/sync");
+      if(status.ok){
+        const {rev, self} = await status.json();
+        if(rev === syncRev + 1 && self && !syncForce) syncRev = rev; // 只是自己剛才的改動，畫面已經是最新的
+        else if(rev !== syncRev || syncForce) await fetchSyncData();
+      }
+    }catch(e){ /* 暫時連不上就等下一輪 */ }
+    syncBusy = false;
+    if(syncRenderPending && !document.querySelector(".overlay.open") && !isEditingCard()) renderKeepingScroll();
   }
 
   function loadReadings(monthKey){
@@ -5227,6 +5360,11 @@
     window.addEventListener("online", retryUnsavedReadings);
     window.addEventListener("pagehide", sendPendingCurrOnExit);
     window.addEventListener("pagehide", reportOfflineOnExit);
+    if(CLOUD_URL){
+      setInterval(pollSync, SYNC_INTERVAL_MS);
+      document.addEventListener("visibilitychange", pollSync); // 切回畫面馬上查一次
+      window.addEventListener("focus", pollSync);
+    }
     if(currentUserRole === "Admin"){
       setInterval(()=>{
         if(accountsOverlay.classList.contains("open") && !document.hidden) loadAccountsList();
@@ -5238,11 +5376,15 @@
     startHeartbeat();
     buildMonthOptions();
     try{
-      await loadSites();
-      await loadAllReadings();
+      if(CLOUD_URL){
+        await loadSyncSnapshot();
+      }else{
+        await loadSites();
+        await loadAllReadings();
+        await refreshAdminKnownStoreNames();
+      }
       fillMonthOptions();
       restoreUnsavedReadings();
-      await refreshAdminKnownStoreNames();
       render();
     }catch(e){
       showToast(e.message || "載入資料失敗，請重新整理頁面");

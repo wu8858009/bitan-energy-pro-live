@@ -6,7 +6,7 @@
 <title>碧潭能源管理系統</title>
 <meta name="description" content="碧潭能源管理系統 PRO - 水電瓦斯抄錶與用量分析工具">
 <meta name="theme-color" content="#0d2140">
-<meta name="app-build" content="5.01">
+<meta name="app-build" content="5.02">
 <link rel="manifest" href="manifest.json">
 <script>
 // 依裝置切換版面（不看視窗寬度）：電腦版（desktop/main.py 或電腦瀏覽器）用電腦排版，
@@ -833,7 +833,7 @@
         <div class="topbar-user-name" id="navUserName">--</div>
       </div>
       <h1>碧潭能源管理系統</h1>
-      <span class="pro-badge">PRO v5.01</span>
+      <span class="pro-badge">PRO v5.02</span>
     </div>
 
     <div class="control-panel">
@@ -1072,7 +1072,7 @@
     <div class="sheet-actions">
       <button class="btn-cancel" id="menuCloseBtn">關閉</button>
     </div>
-    <div class="menu-version">碧潭能源管理系統 PRO v5.01 ・ 資料儲存於伺服器</div>
+    <div class="menu-version">碧潭能源管理系統 PRO v5.02 ・ 資料儲存於伺服器</div>
   </div>
 </div>
 
@@ -1564,9 +1564,74 @@
 
   // ---- 後端 API（站點/讀數/照片皆存於伺服器 MongoDB；帳號密碼登入後才能存取） ----
   const API_BASE = "/api";
+  // 資料存放位置：填 Google Apps Script「網頁應用程式」網址（…/exec 結尾）＝資料存在 Google 試算表、照片存雲端硬碟；
+  // 留空＝沿用同網域的 /api 伺服器（原本的 Render 後端）。兩邊的路徑、欄位、錯誤訊息都一樣。
+  const CLOUD_URL = "https://script.google.com/macros/s/AKfycbxose_ffHC10iY2WAxhVVsEIkq-xcSRUu1eHumBms9K_Dq7Nl3m9v-uwCsunXRuVfSj/exec";
+  const LS_CLOUD_TOKEN = "bitan_cloud_token";
+  const CLOUD_PHOTO_MAX_SIDE = 1600;
+
+  // 雲端版上傳前先縮圖：手機原圖動輒數 MB，縮到看得清楚錶面的大小，上傳快很多也省雲端硬碟空間。
+  async function cloudPhotoBody(file){
+    let blob = file, contentType = file.type || "image/jpeg";
+    try{
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, CLOUD_PHOTO_MAX_SIDE / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      if(bmp.close) bmp.close();
+      const jpeg = await new Promise(done=>canvas.toBlob(done, "image/jpeg", 0.85));
+      if(jpeg && jpeg.size < file.size){ blob = jpeg; contentType = "image/jpeg"; }
+    }catch(e){ /* 瀏覽器解不開這種格式（例如 HEIC）就傳原檔 */ }
+    const data = await new Promise((done, fail)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>done(String(reader.result).split(",")[1]);
+      reader.onerror = ()=>fail(new Error("讀取照片失敗"));
+      reader.readAsDataURL(blob);
+    });
+    return {contentType, data};
+  }
+
+  function cloudEnvelope(method, path, token, body){
+    return JSON.stringify({m:method, p:path, t:token || "", b:body === undefined ? null : body});
+  }
+
+  // 送出一個 API 請求，回傳類似 fetch Response 的物件。
+  // Apps Script 只能用 POST 收、也無法回傳 HTTP 狀態碼，所以把方法、路徑、權杖包進內容裡，狀態碼放在回應的 s 欄位；
+  // Content-Type 用 text/plain 才不會觸發瀏覽器的 CORS 預檢。Cookie 跨網域用不了，登入狀態改用權杖存在本機。
+  async function apiRaw(path, options){
+    const opts = options || {};
+    if(!CLOUD_URL) return fetch(API_BASE + path, Object.assign({credentials:"include"}, opts));
+    let body;
+    if(opts.body instanceof FormData) body = await cloudPhotoBody(opts.body.get("file"));
+    else if(opts.body) body = JSON.parse(opts.body);
+    const res = await fetch(CLOUD_URL, {
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: cloudEnvelope(opts.method || "GET", path, localStorage.getItem(LS_CLOUD_TOKEN), body)
+    });
+    const reply = await res.json();
+    if(path === "/auth/logout") localStorage.removeItem(LS_CLOUD_TOKEN);
+    else if(reply.b && reply.b.token) localStorage.setItem(LS_CLOUD_TOKEN, reply.b.token);
+    return {ok: reply.s >= 200 && reply.s < 300, status: reply.s, json: async ()=>reply.b};
+  }
+
+  // 關閉頁面時回報離線：頁面正在關閉，要用瀏覽器保證送得出去的方式
+  function reportOfflineOnExit(){
+    try{
+      if(CLOUD_URL){
+        const payload = cloudEnvelope("POST", "/auth/offline", localStorage.getItem(LS_CLOUD_TOKEN));
+        navigator.sendBeacon(CLOUD_URL, new Blob([payload], {type:"text/plain;charset=utf-8"}));
+      }else{
+        fetch(API_BASE+"/auth/offline", {method:"POST", credentials:"include", keepalive:true});
+      }
+    }catch(e){}
+  }
+
   let onAuthRequired = ()=>{};
   async function apiFetch(path, options){
-    const res = await fetch(API_BASE + path, Object.assign({credentials:"include"}, options));
+    const res = await apiRaw(path, options);
     if(res.status === 401){
       onAuthRequired();
       throw new Error("尚未登入或登入已過期");
@@ -1608,8 +1673,42 @@
     localStorage.setItem(LS_SETTINGS, JSON.stringify(appSettings));
   }
 
+  const CLOUD_PHOTO_PREFIX = "cloud-photo:";
+  const CLOUD_PHOTO_BATCH = 8;
   function photoUrl(id){
-    return API_BASE + "/photos/" + id;
+    return CLOUD_URL ? CLOUD_PHOTO_PREFIX + id : API_BASE + "/photos/" + id;
+  }
+
+  // 雲端版的照片要帶登入權杖才拿得到，<img> 不能直接連：這裡整批取回 data: 網址，抓過的留在記憶體，畫面重繪不用重抓。
+  const cloudPhotoCache = new Map();
+  let cloudPhotoQueue = [], cloudPhotoTimer = null;
+  function pumpCloudPhotos(){
+    cloudPhotoTimer = null;
+    const batch = cloudPhotoQueue.splice(0, CLOUD_PHOTO_BATCH);
+    if(!batch.length) return;
+    apiFetch("/photos/batch", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ids:batch.map(x=>x.id)})})
+      .then(r=>r.json())
+      .then(reply=>batch.forEach(x=>{
+        if(reply.photos[x.id]) x.resolve(reply.photos[x.id]);
+        else x.reject(new Error("找不到照片"));
+      }))
+      .catch(err=>batch.forEach(x=>x.reject(err)));
+    if(cloudPhotoQueue.length) cloudPhotoTimer = setTimeout(pumpCloudPhotos, 0);
+  }
+  function loadCloudPhoto(id){
+    if(!cloudPhotoCache.has(id)){
+      const promise = new Promise((resolve, reject)=>{
+        cloudPhotoQueue.push({id, resolve, reject});
+        if(!cloudPhotoTimer) cloudPhotoTimer = setTimeout(pumpCloudPhotos, 30);
+      });
+      cloudPhotoCache.set(id, promise);
+      promise.catch(()=>cloudPhotoCache.delete(id)); // 失敗不留快取，下次重繪再試
+    }
+    return cloudPhotoCache.get(id);
+  }
+  function setImagePhoto(img, url){
+    if(!url.startsWith(CLOUD_PHOTO_PREFIX)){ img.src = url; return; }
+    loadCloudPhoto(url.slice(CLOUD_PHOTO_PREFIX.length)).then(src=>{ img.src = src; }, ()=>{});
   }
 
   // ---- 照片放大檢視：桌面滾輪縮放、手機雙指縮放，放大後可拖曳平移 ----
@@ -1632,7 +1731,8 @@
   }
 
   function openPhotoViewer(url){
-    pvImg.src = url;
+    pvImg.removeAttribute("src");
+    setImagePhoto(pvImg, url);
     pvResetTransform(false);
     document.getElementById("photoViewerOverlay").classList.add("open");
   }
@@ -2178,7 +2278,7 @@
           const thumb = document.createElement("div");
           thumb.className = "photo-thumb";
           const img = document.createElement("img");
-          img.src = photo.url;
+          setImagePhoto(img, photo.url);
           img.addEventListener("click", ()=>openPhotoViewer(photo.url));
           thumb.appendChild(img);
           if(canDelete()){
@@ -4899,8 +4999,8 @@
   onAuthRequired = showLoginOverlay;
 
   async function apiLogin(username, password){
-    const res = await fetch(API_BASE + "/auth/login", {
-      method:"POST", credentials:"include", headers:{"Content-Type":"application/json"},
+    const res = await apiRaw("/auth/login", {
+      method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({username, password})
     });
     if(!res.ok){
@@ -4960,8 +5060,8 @@
 
   document.getElementById("mLogout").addEventListener("click", ()=>{
     showConfirm("確定要登出嗎？", async ()=>{
-      try{ await fetch(API_BASE+"/auth/offline", {method:"POST", credentials:"include"}); }catch(e){}
-      try{ await fetch(API_BASE+"/auth/logout", {method:"POST", credentials:"include"}); }catch(e){}
+      try{ await apiRaw("/auth/offline", {method:"POST"}); }catch(e){}
+      try{ await apiRaw("/auth/logout", {method:"POST"}); }catch(e){}
       location.reload();
     }, {title:"登出", okLabel:"登出", danger:true});
   });
@@ -4969,20 +5069,20 @@
   // ---- init ----
   // 即時在線回報：每 5 秒回報一次「我還在線上」（超過 15 秒沒回報就視為離線），
   // 關閉頁面/登出時另外立刻回報離線；管理員開著帳號管理時，列表每 5 秒自動更新。
+  // 雲端版每次請求都要 1～2 秒，又有每日用量限制，所以兩者都放慢到每 60 秒（超過 90 秒沒回報視為離線）。
+  const PRESENCE_INTERVAL_MS = CLOUD_URL ? 60000 : 5000;
   let heartbeatTimer = null;
   function startHeartbeat(){
     if(heartbeatTimer) return;
     const beat = ()=>{ if(!document.hidden) apiFetch("/auth/heartbeat", {method:"POST"}).catch(()=>{}); };
-    heartbeatTimer = setInterval(beat, 5000);
+    heartbeatTimer = setInterval(beat, PRESENCE_INTERVAL_MS);
     beat();
     document.addEventListener("visibilitychange", beat);
-    window.addEventListener("pagehide", ()=>{
-      try{ fetch(API_BASE+"/auth/offline", {method:"POST", credentials:"include", keepalive:true}); }catch(e){}
-    });
+    window.addEventListener("pagehide", reportOfflineOnExit);
     if(currentUserRole === "Admin"){
       setInterval(()=>{
         if(accountsOverlay.classList.contains("open") && !document.hidden) loadAccountsList();
-      }, 5000);
+      }, PRESENCE_INTERVAL_MS);
     }
   }
 
@@ -5002,7 +5102,7 @@
   async function bootApp(){
     loadSettings();
     try{
-      const res = await fetch(API_BASE + "/auth/me", {credentials:"include"});
+      const res = await apiRaw("/auth/me");
       if(res.ok){
         const me = await res.json();
         currentUserRole = me.role;

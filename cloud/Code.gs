@@ -62,6 +62,8 @@ const ok_ = (b) => ({ s: 200, b: b === undefined ? null : b });
 // [方法, 路徑, 權限("public"|"user"|"admin"), 處理函式]
 const ROUTES = [
   ["POST", /^\/auth\/login$/, "public", (c) => login_(c)],
+  ["POST", /^\/auth\/kitchen$/, "public", (c) => kitchenLogin_(c)],
+  ["POST", /^\/auth\/kitchen-key$/, "admin", (c) => setKitchenKey_(c)],
   ["POST", /^\/setup\/import$/, "public", (c) => setupImport_(c)],
   ["GET", /^\/sync$/, "public", (c) => syncStatus_(c)],
 
@@ -824,6 +826,51 @@ function createAccount_(c) {
   saveUser_(u);
   audit_(c.user.username, "新增帳號", u.username);
   return ok_(accountOut_(u, {}));
+}
+
+// ---------------------------------------------------------------- 廚房專用表格系統：同步密碼
+// 廚房專用表格系統（另一個網站）打開抄表時不顯示登入畫面：用一組「同步密碼」登入，
+// 對應到抄表管理員設定時指定的帳號（沒指定就是設定的那位管理員自己）。密碼跟一般密碼一樣只存雜湊。
+const KITCHEN_KEY_MAX_FAILS = 10;
+
+function kitchenLogin_(c) {
+  const props = PropertiesService.getScriptProperties();
+  const hash = props.getProperty("kitchenKeyHash"), uid = props.getProperty("kitchenKeyUser");
+  if (!hash || !uid) fail_(409, "抄表還沒有設定同步密碼");
+  const until = Number(props.getProperty("kitchenKeyLockedUntil") || 0);
+  if (until > Date.now()) fail_(401, "同步密碼錯誤次數過多，請 " + Math.ceil((until - Date.now()) / 60000) + " 分鐘後再試");
+  const good = verifyPassword_(String(c.body.key || ""), hash); // 很花時間，在上鎖之前做
+  lock_();
+  if (!good) {
+    const n = Number(props.getProperty("kitchenKeyFails") || 0) + 1;
+    if (n >= KITCHEN_KEY_MAX_FAILS) {
+      props.setProperty("kitchenKeyLockedUntil", String(Date.now() + LOCKOUT_MINUTES * 60000));
+      props.setProperty("kitchenKeyFails", "0");
+      audit_("廚房專用表格系統", "同步密碼鎖定", "連續輸入錯誤 " + KITCHEN_KEY_MAX_FAILS + " 次，鎖定 " + LOCKOUT_MINUTES + " 分鐘");
+    } else props.setProperty("kitchenKeyFails", String(n));
+    fail_(401, "同步密碼錯誤");
+  }
+  if (props.getProperty("kitchenKeyFails")) props.deleteProperty("kitchenKeyFails");
+  const user = userById_(uid);
+  if (!user) fail_(401, "同步密碼對應的帳號已被刪除，請抄表管理員重新設定");
+  markSeen_(user.id);
+  return ok_(Object.assign(meOut_(user), { token: createToken_(user) }));
+}
+
+function setKitchenKey_(c) {
+  const key = String(c.body.key || "");
+  if (key.length < 6) fail_(400, "同步密碼至少需要 6 個字元");
+  let user = c.user;
+  if (!blank_(c.body.username)) {
+    user = users_().find((u) => u.username === String(c.body.username).trim()) || null;
+    if (!user) fail_(400, "找不到這個帳號");
+  }
+  const hash = hashPassword_(key);
+  lock_();
+  const props = PropertiesService.getScriptProperties();
+  props.setProperties({ kitchenKeyHash: hash, kitchenKeyUser: user.id, kitchenKeyFails: "0", kitchenKeyLockedUntil: "0" });
+  audit_(c.user.username, "設定同步密碼", "廚房專用表格系統用「" + user.username + "」登入");
+  return ok_({ username: user.username });
 }
 
 function updateAccount_(c, id) {

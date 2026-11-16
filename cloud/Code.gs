@@ -900,11 +900,12 @@ function hmacKitchen_(text, key) {
   return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(text, key, Utilities.Charset.UTF_8)).replace(/=+$/, "");
 }
 
-// 所有區域（門市）名稱：門市管理裡的＋站點上有用到的
+// 區域（門市）名稱：只算真的有站點的（門市管理裡登記了、但沒有站點的區域，選了也看不到任何資料）；
+// 一個站點都還沒有時才用門市管理的清單
 function groupNames_() {
   const seen = {};
-  storesOf_().forEach((x) => { if (x.name) seen[x.name] = 1; });
   dataOf_("Sites").forEach((x) => { if (x && x.group) seen[x.group] = 1; });
+  if (!Object.keys(seen).length) storesOf_().forEach((x) => { if (x.name) seen[x.name] = 1; });
   return Object.keys(seen).sort();
 }
 

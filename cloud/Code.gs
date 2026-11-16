@@ -661,6 +661,7 @@ function saveUser_(u) { put_("Users", u.id, u); }
 
 // null＝不受限；管理員如果也勾選了門市，就跟一般使用者一樣只限定在那些門市
 function allowedGroups_(user) {
+  if (user.kfAll) return null; // 廚房專用表格系統設定「全部區域」的帳號
   const assigned = user.assignedGroups || [];
   if (user.role === "Admin") return assigned.length ? assigned : null;
   return assigned;
@@ -697,7 +698,7 @@ function allowedSiteIds_(user) {
 }
 
 function meOut_(u) {
-  return { username: u.username, displayName: u.displayName || "", role: u.role, assignedGroups: u.assignedGroups || [],
+  return { username: u.username, displayName: u.displayName || "", role: u.role, assignedGroups: u.kfAll ? groupNames_() : (u.assignedGroups || []),
     permissionLevel: permissionOf_(u) };
 }
 
@@ -834,6 +835,7 @@ function createAccount_(c) {
 const KITCHEN_KEY_MAX_FAILS = 10;
 
 function kitchenLogin_(c) {
+  if (c.body.ticket) return kitchenTicketLogin_(String(c.body.ticket));
   const props = PropertiesService.getScriptProperties();
   const hash = props.getProperty("kitchenKeyHash"), uid = props.getProperty("kitchenKeyUser");
   if (!hash || !uid) fail_(409, "抄表還沒有設定同步密碼");
@@ -851,10 +853,59 @@ function kitchenLogin_(c) {
     fail_(401, "同步密碼錯誤");
   }
   if (props.getProperty("kitchenKeyFails")) props.deleteProperty("kitchenKeyFails");
+  if (props.getProperty("kitchenKey") !== String(c.body.key)) props.setProperty("kitchenKey", String(c.body.key)); // 舊版只存雜湊：通行證要用原本的密碼簽章
   const user = userById_(uid);
   if (!user) fail_(401, "同步密碼對應的帳號已被刪除，請抄表管理員重新設定");
   markSeen_(user.id);
   return ok_(Object.assign(meOut_(user), { token: createToken_(user) }));
+}
+
+// 廚房專用表格系統的「通行證」：廚房的權限後端用同步密碼簽章，寫明是誰、權限等級、可以看的區域。
+// 每個廚房人員對應一個抄表帳號（kf 欄位＝廚房的名字，自動建立；權限照通行證，每次登入都更新）。
+function kitchenTicketLogin_(t) {
+  const key = PropertiesService.getScriptProperties().getProperty("kitchenKey");
+  if (!key) fail_(409, "抄表還沒有設定同步密碼");
+  const i = t.lastIndexOf(".");
+  const body = i > 0 ? t.slice(0, i) : "";
+  if (!body || hmacKitchen_(body, key) !== t.slice(i + 1)) fail_(401, "廚房系統的通行證不正確（同步密碼可能改過了），請重新整理");
+  let p = null;
+  try { p = JSON.parse(decodeURIComponent(body)); } catch (e) { fail_(401, "廚房系統的通行證不正確"); }
+  if (!(Number(p.x) > Date.now()) || Number(p.x) > Date.now() + 15 * 60000) fail_(401, "廚房系統的通行證已過期，請重新整理");
+  const name = String(p.n || "").trim().slice(0, 20);
+  if (!name) fail_(401, "廚房系統的通行證不正確");
+  const admin = !!p.a;
+  const groups = admin ? [] : (Array.isArray(p.g) ? p.g.map((g) => String(g).trim()).filter(Boolean) : []);
+  const want = { role: admin ? "Admin" : "User", permissionLevel: admin ? "Full" : (Object.prototype.hasOwnProperty.call(RANK_, p.lv) ? p.lv : "View"),
+    assignedGroups: groups, kfAll: !admin && !groups.length };
+  lock_();
+  let u = users_().find((x) => x.kf === name) || null, changed = false;
+  if (!u) {
+    let un = "廚房・" + name, k = 2;
+    while (users_().some((x) => x.username === un)) un = "廚房・" + name + (k++);
+    u = Object.assign({ id: newId_(), displayName: name, username: un, passwordHash: "", kf: name, createdAt: nowIso_(), failedLoginCount: 0, lockedUntil: null }, want);
+    saveUser_(u);
+    audit_("廚房專用表格系統", "新增帳號", un);
+    changed = true;
+  } else if (u.role !== want.role || u.permissionLevel !== want.permissionLevel || !!u.kfAll !== want.kfAll ||
+      JSON.stringify(u.assignedGroups || []) !== JSON.stringify(groups)) {
+    Object.assign(u, want);
+    saveUser_(u);
+    changed = true;
+  }
+  markSeen_(u.id);
+  return ok_(Object.assign(meOut_(u), { token: createToken_(u), changed: changed, groups: groupNames_() }));
+}
+
+function hmacKitchen_(text, key) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(text, key, Utilities.Charset.UTF_8)).replace(/=+$/, "");
+}
+
+// 所有區域（門市）名稱：門市管理裡的＋站點上有用到的
+function groupNames_() {
+  const seen = {};
+  storesOf_().forEach((x) => { if (x.name) seen[x.name] = 1; });
+  dataOf_("Sites").forEach((x) => { if (x && x.group) seen[x.group] = 1; });
+  return Object.keys(seen).sort();
 }
 
 function setKitchenKey_(c) {
@@ -868,7 +919,7 @@ function setKitchenKey_(c) {
   const hash = hashPassword_(key);
   lock_();
   const props = PropertiesService.getScriptProperties();
-  props.setProperties({ kitchenKeyHash: hash, kitchenKeyUser: user.id, kitchenKeyFails: "0", kitchenKeyLockedUntil: "0" });
+  props.setProperties({ kitchenKeyHash: hash, kitchenKey: key, kitchenKeyUser: user.id, kitchenKeyFails: "0", kitchenKeyLockedUntil: "0" });
   audit_(c.user.username, "設定同步密碼", "廚房專用表格系統用「" + user.username + "」登入");
   return ok_({ username: user.username });
 }
